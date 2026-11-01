@@ -15,10 +15,10 @@ createRoot(document.getElementById("root")!).render(
 );
 
 if (Capacitor.isNativePlatform()) {
-  // Android back: leave Stats first, then close the app.
+  // Android back: return to Play from any other section, then close the app.
   void App.addListener("backButton", () => {
     const { view, setView } = usePlay.getState();
-    if (view === "stats") setView("play");
+    if (view !== "play") setView("play");
     else void App.exitApp();
   });
 } else if ("serviceWorker" in navigator && import.meta.env.PROD) {

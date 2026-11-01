@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BarChart3, Check, Flame, Lightbulb, Play as PlayIcon, RotateCcw, X } from "lucide-react";
+import { BarChart3, BookOpen, Check, Flame, Lightbulb, Mic, Play as PlayIcon, RotateCcw, X } from "lucide-react";
 import {
   CHOICE_POINTS,
   TYPE_POINTS,
@@ -16,6 +16,9 @@ import {
 } from "@/lib/tilde/engine";
 import { usePlay } from "@/lib/tilde/store";
 import { DIFFICULTIES, PERSONS, TENSES, type Difficulty, type Item, type Tense } from "@/lib/tilde/types";
+import { Learn } from "./learn";
+import { ACCENT_KEYS, Chip, buzz } from "./shared";
+import { Speak } from "./speak";
 
 const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   facil: "Fácil",
@@ -35,17 +38,6 @@ const DIFFICULTY_HELP: Record<Difficulty, string> = {
   dificil: "Future, conditional and subjunctive. No hints — go by the English.",
 };
 
-const ACCENT_KEYS = ["á", "é", "í", "ó", "ú", "ü", "ñ"] as const;
-
-/** Short haptic tick on devices that support it (Android); silently ignored elsewhere. */
-function buzz(pattern: number | number[]) {
-  try {
-    navigator.vibrate?.(pattern);
-  } catch {
-    /* not supported */
-  }
-}
-
 export function Tilde() {
   const stats = usePlay((state) => state.stats);
   const cardId = usePlay((state) => state.cardId);
@@ -56,6 +48,8 @@ export function Tilde() {
   const resolve = usePlay((state) => state.resolve);
   const reset = usePlay((state) => state.reset);
   const draw = usePlay((state) => state.draw);
+  // In Speak, switching level shouldn't jump back to Play.
+  const setLevel = (level: Difficulty) => usePlay.setState({ difficulty: level });
   const item = itemById(cardId);
   const span = levelSpan(stats.xp);
   const xpWidth = Math.min(100, Math.round((span.into / span.need) * 100));
@@ -97,16 +91,22 @@ export function Tilde() {
           <div className="xp-fill h-full rounded-full" style={{ width: `${xpWidth}%` }} />
         </div>
 
-        <nav className="mt-5 grid grid-cols-2 gap-1 rounded-full border border-line bg-surface p-1" aria-label="Sections">
+        <nav className="mt-5 grid grid-cols-4 gap-1 rounded-full border border-line bg-surface p-1" aria-label="Sections">
           <Segment on={view === "play"} onClick={() => setView("play")}>
             <PlayIcon className="size-3.5" aria-hidden="true" /> Play
+          </Segment>
+          <Segment on={view === "learn"} onClick={() => setView("learn")}>
+            <BookOpen className="size-3.5" aria-hidden="true" /> Learn
+          </Segment>
+          <Segment on={view === "speak"} onClick={() => setView("speak")}>
+            <Mic className="size-3.5" aria-hidden="true" /> Speak
           </Segment>
           <Segment on={view === "stats"} onClick={() => setView("stats")}>
             <BarChart3 className="size-3.5" aria-hidden="true" /> Stats
           </Segment>
         </nav>
 
-        {view === "play" ? (
+        {view === "play" || view === "speak" ? (
           <section className="mt-4" aria-label="Difficulty">
             <div className="grid grid-cols-3 gap-2" role="group" aria-label="Difficulty">
               {DIFFICULTIES.map((level) => {
@@ -115,7 +115,7 @@ export function Tilde() {
                   <button
                     key={level}
                     type="button"
-                    onClick={() => setDifficulty(level)}
+                    onClick={() => (view === "speak" ? setLevel(level) : setDifficulty(level))}
                     aria-pressed={on}
                     className={`tap rounded-2xl border px-2 py-2 text-left leading-tight ${
                       on ? "border-accent bg-accent/12 text-fg" : "border-line bg-surface/60 text-fg"
@@ -137,7 +137,11 @@ export function Tilde() {
         ) : null}
 
         <main className="pt-5 pb-16">
-          {view === "stats" || !item ? (
+          {view === "learn" ? (
+            <Learn />
+          ) : view === "speak" ? (
+            <Speak />
+          ) : view === "stats" || !item ? (
             <Progress stats={stats} span={span} onPractice={draw} onReset={reset} />
           ) : (
             <Play key={item.id} item={item} onResolve={resolve} onNext={() => draw()} />
@@ -194,24 +198,12 @@ function Segment({ on, onClick, children }: { on: boolean; onClick: () => void; 
       type="button"
       onClick={onClick}
       aria-current={on ? "page" : undefined}
-      className={`tap flex min-h-10 items-center justify-center gap-1.5 rounded-full text-sm font-semibold ${
+      className={`tap flex min-h-10 flex-col items-center justify-center gap-0.5 rounded-full text-xs font-semibold min-[400px]:flex-row min-[400px]:gap-1.5 min-[400px]:text-sm ${
         on ? "bg-fg text-bg shadow-sm" : "text-muted hover:text-fg"
       }`}
     >
       {children}
     </button>
-  );
-}
-
-function Chip({ children, tone = "plain" }: { children: ReactNode; tone?: "plain" | "accent" }) {
-  return (
-    <span
-      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wider uppercase ${
-        tone === "accent" ? "bg-accent/15 text-accent" : "bg-line/70 text-muted"
-      }`}
-    >
-      {children}
-    </span>
   );
 }
 
@@ -487,6 +479,7 @@ function Progress({
   onPractice: (id: string) => void;
   onReset: () => void;
 }) {
+  const speech = usePlay((state) => state.speech);
   const [confirming, setConfirming] = useState(false);
   const rate = stats.seen === 0 ? 0 : Math.round((stats.correct / stats.seen) * 100);
   const ratio = Math.min(1, span.into / span.need);
@@ -536,6 +529,12 @@ function Progress({
       <p className="mt-2 px-1 text-xs text-muted tabular-nums">
         {stats.seen} answered · {stats.typed} typed · {stats.picked} chosen
       </p>
+      {speech.tries > 0 ? (
+        <p className="mt-1 flex items-center gap-1 px-1 text-xs text-muted tabular-nums">
+          <Mic className="size-3" aria-hidden="true" /> {speech.perfect} of {speech.tries} spoken perfectly · best
+          speaking streak {speech.best}
+        </p>
+      ) : null}
 
       <h2 className="mt-7 px-1 text-xs font-semibold tracking-widest text-muted uppercase">By tense</h2>
       <ul className="card mt-2 divide-y divide-line rounded-3xl border border-line px-4">

@@ -4,10 +4,15 @@ import { applyAnswer, difficultyFor, emptyStats, itemById, nextItem } from "./en
 import { ITEMS } from "./items";
 import type { Difficulty, Item, Stats } from "./types";
 
-type View = "play" | "stats";
+export type View = "play" | "learn" | "speak" | "stats";
+
+export type SpeechStats = { tries: number; perfect: number; streak: number; best: number };
+
+const emptySpeech = (): SpeechStats => ({ tries: 0, perfect: 0, streak: 0, best: 0 });
 
 type PlayState = {
   stats: Stats;
+  speech: SpeechStats;
   cardId: string;
   difficulty: Difficulty;
   view: View;
@@ -16,12 +21,15 @@ type PlayState = {
   resolve: (item: Item, ok: boolean, via: "type" | "choice", accent: boolean) => number;
   draw: (id?: string) => void;
   reset: () => void;
+  /** Record a speaking attempt (ratio 0-1 of words heard). Returns XP earned. */
+  spoke: (ratio: number) => number;
 };
 
 export const usePlay = create<PlayState>()(
   persist(
     (set, get) => ({
       stats: emptyStats(),
+      speech: emptySpeech(),
       cardId: ITEMS[0].id,
       difficulty: "facil",
       view: "play",
@@ -51,13 +59,34 @@ export const usePlay = create<PlayState>()(
       },
       reset: () => {
         const stats = emptyStats();
-        set({ stats, cardId: nextItem(stats, [], get().difficulty).id, view: "play" });
+        set({ stats, speech: emptySpeech(), cardId: nextItem(stats, [], get().difficulty).id, view: "play" });
+      },
+      spoke: (ratio) => {
+        const perfect = ratio >= 1;
+        const xp = perfect ? 8 : ratio >= 0.8 ? 4 : 0;
+        const prev = get().speech ?? emptySpeech();
+        const streak = perfect ? prev.streak + 1 : 0;
+        set({
+          speech: {
+            tries: prev.tries + 1,
+            perfect: prev.perfect + (perfect ? 1 : 0),
+            streak,
+            best: Math.max(prev.best, streak),
+          },
+          stats: { ...get().stats, xp: get().stats.xp + xp },
+        });
+        return xp;
       },
     }),
     {
       name: "tilde-v1",
       skipHydration: true,
-      partialize: (state) => ({ stats: state.stats, cardId: state.cardId, difficulty: state.difficulty }),
+      partialize: (state) => ({
+        stats: state.stats,
+        speech: state.speech,
+        cardId: state.cardId,
+        difficulty: state.difficulty,
+      }),
     },
   ),
 );

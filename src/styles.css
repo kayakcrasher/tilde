@@ -108,6 +108,25 @@
   }
 }
 
+.mic-ring {
+  position: absolute;
+  inset: -6px;
+  border-radius: 9999px;
+  border: 3px solid var(--color-bad);
+  animation: tilde-ring 1.2s ease-out infinite;
+}
+
+@keyframes tilde-ring {
+  from {
+    opacity: 0.8;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 1.35;
+  }
+}
+
 .safe-area {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
@@ -140,7 +159,8 @@
 @media (prefers-reduced-motion: reduce) {
   .rise,
   .pop,
-  .gap-slot {
+  .gap-slot,
+  .mic-ring {
     animation: none;
   }
 }
