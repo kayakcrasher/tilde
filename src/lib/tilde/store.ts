@@ -15,6 +15,7 @@ type PlayState = {
   setDifficulty: (difficulty: Difficulty) => void;
   resolve: (item: Item, ok: boolean, via: "type" | "choice", accent: boolean) => number;
   draw: (id?: string) => void;
+  reset: () => void;
 };
 
 export const usePlay = create<PlayState>()(
@@ -47,6 +48,10 @@ export const usePlay = create<PlayState>()(
         }
         const next = nextItem(get().stats, [get().cardId], get().difficulty);
         set({ cardId: next.id });
+      },
+      reset: () => {
+        const stats = emptyStats();
+        set({ stats, cardId: nextItem(stats, [], get().difficulty).id, view: "play" });
       },
     }),
     {

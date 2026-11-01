@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Flame } from "lucide-react";
 import {
   CHOICE_POINTS,
@@ -27,6 +27,17 @@ const DIFFICULTY_EN: Record<Difficulty, string> = {
   dificil: "Hard",
 };
 
+const ACCENT_KEYS = ["á", "é", "í", "ó", "ú", "ü", "ñ"] as const;
+
+/** Short haptic tick on devices that support it (Android); silently ignored elsewhere. */
+function buzz(pattern: number | number[]) {
+  try {
+    navigator.vibrate?.(pattern);
+  } catch {
+    /* not supported */
+  }
+}
+
 const DIFFICULTY_HELP: Record<Difficulty, string> = {
   facil: "Present tense. A small line names the verb, the tense, and who does it.",
   medio: "Preterite and imperfect. You only get the verb and the tense.",
@@ -41,6 +52,7 @@ export function Tilde() {
   const setView = usePlay((state) => state.setView);
   const setDifficulty = usePlay((state) => state.setDifficulty);
   const resolve = usePlay((state) => state.resolve);
+  const reset = usePlay((state) => state.reset);
   const draw = usePlay((state) => state.draw);
   const item = itemById(cardId);
   const span = levelSpan(stats.xp);
@@ -53,7 +65,7 @@ export function Tilde() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-bg text-fg">
+    <div className="safe-area min-h-screen bg-bg text-fg">
       <header className="mx-auto flex max-w-xl items-center gap-3 px-4 py-4">
         <p className="font-display text-3xl font-semibold tracking-tight text-fg">Tilde</p>
         <p className="text-sm text-muted tabular-nums">Level {span.level}</p>
@@ -89,7 +101,7 @@ export function Tilde() {
       </p>
       <main className="mx-auto max-w-xl px-4 pt-6 pb-16">
         {view === "stats" || !item ? (
-          <Progress stats={stats} span={span} onPractice={draw} />
+          <Progress stats={stats} span={span} onPractice={draw} onReset={reset} />
         ) : (
           <Play key={item.id} item={item} onResolve={resolve} onNext={() => draw()} />
         )}
@@ -132,6 +144,8 @@ function Play({
   onNext: () => void;
 }) {
   const [draft, setDraft] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const nextRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; points: number; accent: boolean; via: "type" | "choice" } | null>(
     null,
@@ -151,7 +165,49 @@ function Play({
     const accent = via === "type" && graded.accent;
     const points = onResolve(item, graded.ok, via, accent);
     setResult({ ok: graded.ok, points, accent, via });
+    buzz(graded.ok ? 12 : [30, 60, 30]);
   }
+
+  function insert(char: string) {
+    const input = inputRef.current;
+    if (!input) {
+      setDraft((value) => value + char);
+      return;
+    }
+    const start = input.selectionStart ?? draft.length;
+    const end = input.selectionEnd ?? draft.length;
+    const next = draft.slice(0, start) + char + draft.slice(end);
+    setDraft(next);
+    requestAnimationFrame(() => {
+      input.focus();
+      input.setSelectionRange(start + char.length, start + char.length);
+    });
+  }
+
+  // Focus the answer on desktop (fine pointer) so you can type straight away;
+  // on phones this would pop the keyboard over the sentence, so leave it.
+  useEffect(() => {
+    if (window.matchMedia?.("(pointer: fine)").matches) inputRef.current?.focus({ preventScroll: true });
+  }, []);
+
+  useEffect(() => {
+    if (result) nextRef.current?.focus({ preventScroll: true });
+  }, [result]);
+
+  // Keys 1-4 pick a choice once the choices are open.
+  useEffect(() => {
+    if (!open || result) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.target instanceof HTMLInputElement && event.target.value) return;
+      const index = Number(event.key) - 1;
+      if (Number.isInteger(index) && index >= 0 && index < choices.length) {
+        event.preventDefault();
+        finish(choices[index], "choice");
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
   function goNext() {
     setDraft("");
@@ -169,7 +225,13 @@ function Play({
       </p>
       <h1 className="mt-4 font-display text-3xl font-semibold leading-snug text-fg md:text-4xl">
         {left}
-        <span className={result ? "text-accent" : "inline-block min-w-16 border-b-2 border-accent"}>
+        <span
+          className={
+            result
+              ? `pop ${result.ok ? "text-good" : "text-bad"}`
+              : "inline-block min-w-16 border-b-2 border-accent"
+          }
+        >
           {result ? answer : "\u00a0"}
         </span>
         {tail}
@@ -177,8 +239,10 @@ function Play({
       <p className="mt-4 text-base text-muted">{item.en}</p>
 
       {result ? (
-        <div className="mt-8">
-          <p className="font-display text-3xl font-semibold text-fg">{result.ok ? "Correct." : "Not that one."}</p>
+        <div className="rise mt-8" aria-live="polite">
+          <p className={`font-display text-3xl font-semibold ${result.ok ? "text-good" : "text-bad"}`}>
+            {result.ok ? "Correct." : "Not that one."}
+          </p>
           <p className="mt-2 text-base text-muted">
             {result.ok
               ? result.via === "type" && !result.accent
@@ -186,8 +250,13 @@ function Play({
                 : `+${result.points}`
               : `The form is ${answer}. Streak back to zero.`}
           </p>
-          <button type="button" onClick={goNext} className="tap mt-6 min-h-11 rounded-full bg-accent px-5 text-ink">
-            Next
+          <button
+            ref={nextRef}
+            type="button"
+            onClick={goNext}
+            className="tap mt-6 min-h-11 rounded-full bg-accent px-6 text-ink"
+          >
+            Next <span className="ml-1 hidden text-xs opacity-70 [@media(pointer:fine)]:inline">↵</span>
           </button>
         </div>
       ) : (
@@ -205,6 +274,7 @@ function Play({
               : `Type the missing verb for ${typePoints} points. A choice is worth ${choicePoints}.`}
           </label>
           <input
+            ref={inputRef}
             id="answer"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
@@ -214,8 +284,23 @@ function Play({
             spellCheck={false}
             lang="es"
             placeholder="type the verb"
-            className="mt-2 w-full border-b border-line bg-transparent py-3 font-display text-3xl font-semibold text-fg placeholder:text-muted"
+            enterKeyHint="done"
+            className="mt-2 w-full border-b border-line bg-transparent py-3 font-display text-3xl font-semibold text-fg placeholder:text-muted/60 focus:border-accent focus:outline-none"
           />
+          <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Insert accented letter">
+            {ACCENT_KEYS.map((char) => (
+              <button
+                key={char}
+                type="button"
+                onPointerDown={(event) => event.preventDefault()}
+                onClick={() => insert(char)}
+                className="tap size-10 rounded-xl border border-line bg-surface font-display text-lg text-fg"
+                aria-label={`Insert ${char}`}
+              >
+                {char}
+              </button>
+            ))}
+          </div>
           <div className="mt-4 flex flex-wrap gap-2">
             <button type="submit" className="tap min-h-11 rounded-full bg-accent px-5 text-ink">
               Check
@@ -230,13 +315,16 @@ function Play({
           </div>
           {open ? (
             <ul className="mt-4 grid grid-cols-2 gap-2">
-              {choices.map((choice) => (
-                <li key={choice}>
+              {choices.map((choice, index) => (
+                <li key={choice} className="rise" style={{ animationDelay: `${index * 40}ms` }}>
                   <button
                     type="button"
                     onClick={() => finish(choice, "choice")}
-                    className="tap min-h-11 w-full rounded-2xl border border-line bg-surface px-3 text-fg"
+                    className="tap relative min-h-12 w-full rounded-2xl border border-line bg-surface px-3 text-fg"
                   >
+                    <span className="absolute top-1 left-2 hidden text-[10px] text-muted [@media(pointer:fine)]:block">
+                      {index + 1}
+                    </span>
                     {choice}
                   </button>
                 </li>
@@ -253,11 +341,14 @@ function Progress({
   stats,
   span,
   onPractice,
+  onReset,
 }: {
   stats: ReturnType<typeof usePlay.getState>["stats"];
   span: { level: number; into: number; need: number };
   onPractice: (id: string) => void;
+  onReset: () => void;
 }) {
+  const [confirming, setConfirming] = useState(false);
   const rate = stats.seen === 0 ? 0 : Math.round((stats.correct / stats.seen) * 100);
   const width = Math.min(100, Math.round((span.into / span.need) * 100));
   return (
@@ -266,7 +357,7 @@ function Progress({
       <h1 className="mt-2 font-display text-5xl font-semibold tracking-tight text-fg">Level {span.level}</h1>
       <p className="mt-2 text-sm text-muted tabular-nums">{span.into} / {span.need} XP to the next level.</p>
       <div className="mt-4 h-2 overflow-hidden rounded-full bg-line" aria-hidden="true">
-        <div className="h-full bg-accent" style={{ width: `${width}%` }} />
+        <div className="h-full bg-accent transition-[width] duration-500" style={{ width: `${width}%` }} />
       </div>
       <dl className="mt-6 grid grid-cols-3 gap-3">
         <Stat label="Streak" value={String(stats.streak)} />
@@ -282,11 +373,16 @@ function Progress({
           const rowRate = !row || row.seen === 0 ? 0 : Math.round((row.correct / row.seen) * 100);
           return (
             <li key={tense} className="flex items-center gap-3 py-3">
-              <p className="w-28 text-sm text-fg capitalize">{tense}</p>
-              <div className="h-1 flex-1 overflow-hidden rounded-full bg-line">
-                <div className="h-full bg-accent" style={{ width: `${rowRate}%` }} />
+              <div className="w-28">
+                <p className="text-sm text-fg capitalize">{tense}</p>
+                <p className="text-xs text-muted">{tenseHome(tense)}</p>
               </div>
-              <p className="w-16 text-right text-sm text-muted">{tenseHome(tense)}</p>
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
+                <div className="h-full bg-accent transition-[width] duration-500" style={{ width: `${rowRate}%` }} />
+              </div>
+              <p className="w-20 text-right text-sm text-muted tabular-nums">
+                {!row || row.seen === 0 ? "—" : `${rowRate}% · ${row.seen}`}
+              </p>
             </li>
           );
         })}
@@ -312,6 +408,36 @@ function Progress({
               );
             })}
           </ul>
+        </div>
+      ) : null}
+      {stats.seen > 0 ? (
+        <div className="mt-10 border-t border-line pt-6">
+          {confirming ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="w-full text-sm text-muted">Erase your level, streaks and history on this device?</p>
+              <button
+                type="button"
+                onClick={() => {
+                  onReset();
+                  setConfirming(false);
+                }}
+                className="tap min-h-11 rounded-full bg-bad px-5 text-ink"
+              >
+                Erase progress
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                className="tap min-h-11 rounded-full border border-line px-5 text-fg"
+              >
+                Keep it
+              </button>
+            </div>
+          ) : (
+            <button type="button" onClick={() => setConfirming(true)} className="tap text-sm text-muted underline">
+              Reset progress
+            </button>
+          )}
         </div>
       ) : null}
     </div>
