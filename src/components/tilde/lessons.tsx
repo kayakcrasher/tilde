@@ -246,7 +246,7 @@ function Runner({ session, onExit }: { session: Session; onExit: () => void }) {
     setIndex(index + 1);
   }
 
-  if (finished) return <Finish passed={finished.passed} xp={finished.xp} test={isTest} accuracy={firstTry.right / Math.max(1, firstTry.total)} onDone={onExit} />;
+  if (finished) return <Finish passed={finished.passed} xp={finished.xp} test={isTest} accuracy={firstTry.right / Math.max(1, firstTry.total)} onDone={onExit} onCloze={session.kind === "lesson" ? () => playCloze(session.skill) : undefined} />;
 
   return (
     <div className="rise pb-40">
@@ -295,7 +295,27 @@ function Runner({ session, onExit }: { session: Session; onExit: () => void }) {
   );
 }
 
-function Finish({ passed, xp, test, accuracy, onDone }: { passed: boolean; xp: number; test: boolean; accuracy: number; onDone: () => void }) {
+/** Jump into the Cloze game on a sentence from this skill's verbs. */
+function playCloze(skill: Skill) {
+  const items = pack().items.filter((it) => it.tense === skill.tense && skill.verbs.includes(it.verb));
+  if (items.length) usePlay.getState().draw(items[Math.floor(Math.random() * items.length)].id);
+}
+
+function Finish({
+  passed,
+  xp,
+  test,
+  accuracy,
+  onDone,
+  onCloze,
+}: {
+  passed: boolean;
+  xp: number;
+  test: boolean;
+  accuracy: number;
+  onDone: () => void;
+  onCloze?: () => void;
+}) {
   return (
     <div className="rise card mt-6 rounded-3xl border border-line p-6 text-center">
       <div className="mx-auto grid size-20 place-items-center rounded-full bg-accent/15 text-accent">
@@ -315,6 +335,11 @@ function Finish({ passed, xp, test, accuracy, onDone }: { passed: boolean; xp: n
       <button type="button" onClick={onDone} className="tap mt-6 min-h-13 w-full rounded-2xl bg-accent font-bold text-ink">
         Continue
       </button>
+      {onCloze ? (
+        <button type="button" onClick={onCloze} className="tap mt-2 min-h-12 w-full rounded-2xl border-2 border-line font-semibold text-fg hover:border-accent">
+          Play these verbs in Cloze
+        </button>
+      ) : null}
     </div>
   );
 }

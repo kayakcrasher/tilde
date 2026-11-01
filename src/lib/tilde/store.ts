@@ -103,7 +103,7 @@ export const usePlay = create<PlayState>()(
       fresh: [],
       cardId: pack().items[0].id,
       difficulty: "facil",
-      view: "play",
+      view: "lessons",
       typeMode: false,
       setTypeMode: (typeMode) => set({ typeMode }),
       setView: (view) => set({ view }),
@@ -145,7 +145,7 @@ export const usePlay = create<PlayState>()(
           badges: {},
           fresh: [],
           cardId: nextItem(stats, [], get().difficulty).id,
-          view: "play",
+          view: "lessons",
         });
       },
       spoke: (ratio) => {

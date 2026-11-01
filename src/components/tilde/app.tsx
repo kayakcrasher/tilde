@@ -376,8 +376,8 @@ function tabsFor(p: Pack): Tab[] {
     ];
   }
   return [
-    { view: "play", label: "Play", icon: PlayIcon },
     { view: "lessons", label: "Lessons", icon: Route },
+    { view: "play", label: "Play", icon: PlayIcon },
     { view: "learn", label: "Learn", icon: BookOpen },
     { view: "build", label: "Build", icon: Puzzle },
     { view: "words", label: "Words", icon: Brain },
