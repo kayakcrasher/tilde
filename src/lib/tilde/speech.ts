@@ -48,7 +48,7 @@ export function canSpeak(): boolean {
 
 /** Can the active language be read aloud? (Irish uses ABAIR, so it needs a connection.) */
 export function hasVoice(code: string = pack().code): boolean {
-  if (code === "ga") return typeof navigator === "undefined" || navigator.onLine !== false;
+  if (code === "ga") return true; // bundled recordings, or ABAIR when online
   return canSpeak() && Boolean(LANGS[code] ?? pack().speechLang);
 }
 

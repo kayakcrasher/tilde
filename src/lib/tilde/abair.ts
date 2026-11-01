@@ -1,6 +1,12 @@
 // Irish speech from ABAIR (Phonetics and Speech Laboratory, Trinity College
 // Dublin) — https://abair.ie. Free for personal, educational and
-// non-commercial use. Audio is cached on the device after the first play.
+// non-commercial use.
+//
+// Offline first: every sentence, word, story and lesson example was recorded
+// once in the Connacht voice and ships inside the app (public/audio/ga). The
+// other dialects stream from ABAIR when online, and fall back to the bundled
+// Connacht recording when there's no connection.
+import { AUDIO_KEYS } from "./packs/ga/audio-keys";
 
 export type Dialect = "CO" | "MU" | "UL";
 
@@ -76,18 +82,61 @@ async function fetchAudio(text: string, voice: string, rate: number): Promise<st
 
 let current: HTMLAudioElement | null = null;
 
-/** Speak Irish text in the chosen dialect. Resolves when playback ends. */
-export async function speakIrish(text: string, slow = false): Promise<void> {
-  const dialect = DIALECTS.find((d) => d.id === getDialect()) ?? DIALECTS[0];
-  const url = await fetchAudio(text, dialect.voice, slow ? 0.75 : 1);
+async function sha1Key(text: string): Promise<string | null> {
+  try {
+    const bytes = new TextEncoder().encode(text.trim());
+    const digest = await crypto.subtle.digest("SHA-1", bytes);
+    return [...new Uint8Array(digest)]
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+      .slice(0, 12);
+  } catch {
+    return null;
+  }
+}
+
+/** URL of the recording bundled with the app, if this exact text has one. */
+async function bundledUrl(text: string): Promise<string | null> {
+  const key = await sha1Key(text);
+  return key && AUDIO_KEYS.has(key) ? `./audio/ga/${key}.mp3` : null;
+}
+
+function play(url: string, slow: boolean): Promise<void> {
   current?.pause();
   const audio = new Audio(url);
   current = audio;
-  await new Promise<void>((resolve) => {
+  if (slow) {
+    audio.playbackRate = 0.8;
+    (audio as HTMLAudioElement & { preservesPitch?: boolean }).preservesPitch = true;
+  }
+  return new Promise<void>((resolve, reject) => {
     audio.onended = () => resolve();
-    audio.onerror = () => resolve();
-    void audio.play().catch(() => resolve());
+    audio.onerror = () => reject(new Error("audio failed"));
+    void audio.play().catch(reject);
   });
+}
+
+/** Speak Irish text. Works offline for everything in the course. */
+export async function speakIrish(text: string, slow = false): Promise<void> {
+  const dialect = DIALECTS.find((d) => d.id === getDialect()) ?? DIALECTS[0];
+  const bundled = await bundledUrl(text);
+  const online = typeof navigator === "undefined" || navigator.onLine !== false;
+  // Connacht, or no connection: use the recording that ships with the app.
+  if (bundled && (dialect.id === "CO" || !online)) {
+    try {
+      return await play(bundled, slow);
+    } catch {
+      /* fall through to ABAIR */
+    }
+  }
+  try {
+    const url = await fetchAudio(text, dialect.voice, 1);
+    return await play(url, slow);
+  } catch {
+    // Last resort: the bundled Connacht recording. If there isn't one (and
+    // we're offline), stay quiet rather than throwing at the button.
+    if (bundled) await play(bundled, slow).catch(() => {});
+  }
 }
 
 export const ABAIR_CREDIT = "Irish speech by ABAIR, Phonetics and Speech Laboratory, Trinity College Dublin (abair.ie)";
