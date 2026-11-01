@@ -7,6 +7,7 @@ import type { Difficulty, Item, Stats } from "./types";
 
 export type View =
   | "foundations"
+  | "lessons"
   | "play"
   | "learn"
   | "build"
@@ -47,6 +48,10 @@ type PlayState = {
   build: BuildStats;
   /** Foundations lessons finished: id → tasks right first time. */
   lessons: Record<string, number>;
+  /** Lesson tree: skill id → levels completed (0-3). */
+  skills: Record<string, number>;
+  /** Units passed by testing out. */
+  testedOut: string[];
   /** Unlocked badge id → when (ms). */
   badges: Record<string, number>;
   /** Badges unlocked this session that haven't been shown yet. */
@@ -75,6 +80,10 @@ type PlayState = {
   /** Record a built sentence; returns XP earned. */
   built: (ok: boolean, typed: boolean, base: number, perfect: boolean) => number;
   finishLesson: (id: string, right: number) => void;
+  /** Finish a tree lesson; returns XP earned. */
+  completeSkillLesson: (skillId: string, accuracy: number) => number;
+  /** Passing a test-out marks every skill up to that unit as started. */
+  passTestOut: (unitId: string, skillIds: string[]) => void;
   dismissFresh: () => void;
 };
 
@@ -88,6 +97,8 @@ export const usePlay = create<PlayState>()(
       vocab: {},
       build: emptyBuild(),
       lessons: {},
+      skills: {},
+      testedOut: [],
       badges: {},
       fresh: [],
       cardId: pack().items[0].id,
@@ -129,6 +140,8 @@ export const usePlay = create<PlayState>()(
           vocab: {},
           build: emptyBuild(),
           lessons: {},
+          skills: {},
+          testedOut: [],
           badges: {},
           fresh: [],
           cardId: nextItem(stats, [], get().difficulty).id,
@@ -181,6 +194,21 @@ export const usePlay = create<PlayState>()(
           stats: first ? { ...get().stats, xp: get().stats.xp + 10 } : get().stats,
         });
       },
+      completeSkillLesson: (skillId, accuracy) => {
+        const level = Math.min(3, (get().skills[skillId] ?? 0) + 1);
+        const xp = 10 + Math.round(accuracy * 10);
+        set({ skills: { ...get().skills, [skillId]: level }, stats: { ...get().stats, xp: get().stats.xp + xp } });
+        return xp;
+      },
+      passTestOut: (unitId, skillIds) => {
+        const skills = { ...get().skills };
+        for (const id of skillIds) skills[id] = Math.max(skills[id] ?? 0, 1);
+        set({
+          skills,
+          testedOut: [...new Set([...get().testedOut, unitId])],
+          stats: { ...get().stats, xp: get().stats.xp + 30 },
+        });
+      },
       markSeen: (ids) => {
         if (ids.length === 0) return;
         const vocab = { ...get().vocab };
@@ -225,6 +253,8 @@ export const usePlay = create<PlayState>()(
         vocab: state.vocab,
         build: state.build,
         lessons: state.lessons,
+        skills: state.skills,
+        testedOut: state.testedOut,
         badges: state.badges,
         cardId: state.cardId,
         difficulty: state.difficulty,
@@ -267,6 +297,8 @@ export function switchLanguage(code: string): void {
     vocab: saved.vocab ?? {},
     build: { ...emptyBuild(), ...saved.build },
     lessons: saved.lessons ?? {},
+    skills: saved.skills ?? {},
+    testedOut: saved.testedOut ?? [],
     badges: saved.badges ?? {},
     fresh: [],
     difficulty,

@@ -1,10 +1,11 @@
 import { useMemo, useRef, useState } from "react";
 import { Check, Keyboard, Puzzle, RotateCcw, Volume2, X } from "lucide-react";
-import { answerOf, difficultyFor, fold, sentence } from "@/lib/tilde/engine";
+import { answerOf, difficultyFor, sentence } from "@/lib/tilde/engine";
 import { pack } from "@/lib/tilde/lang";
 import { hasVoice, speak } from "@/lib/tilde/speech";
 import { usePlay } from "@/lib/tilde/store";
 import type { Difficulty, Item } from "@/lib/tilde/types";
+import { distractorsFor, gradeWords as grade, shuffle, wordsOf } from "@/lib/tilde/tree";
 import { wordsIn } from "@/lib/tilde/vocab";
 import { AccentKeys, Chip, buzz } from "./shared";
 import { PronLine } from "./pronline";
@@ -15,58 +16,12 @@ const BASE_XP: Record<Difficulty, number> = { facil: 5, medio: 7, dificil: 9 };
 
 type Tile = { id: number; text: string };
 
-/** Split a sentence into word tiles, dropping punctuation (¿ ¡ , . ? ! ;). */
-function wordsOf(text: string): string[] {
-  return text
-    .split(/\s+/)
-    .map((w) => w.replace(/^[¿¡"“«(]+|[,.;:!?"”»)]+$/g, ""))
-    .filter(Boolean);
-}
-
-/** Compare word by word; `ok` ignores case/accents, `exact` needs every mark. */
-function grade(given: string[], target: string[]): { ok: boolean; exact: boolean } {
-  if (given.length !== target.length) return { ok: false, exact: false };
-  const ok = given.every((w, i) => fold(w) === fold(target[i]));
-  const exact = ok && given.every((w, i) => w.toLowerCase().replace(/’/g, "'") === target[i].toLowerCase().replace(/’/g, "'"));
-  return { ok, exact };
-}
-
 function pickItem(difficulty: Difficulty, avoid?: string): Item {
   const pool = pack().items.filter(
     (item) => difficultyFor(item) === difficulty && item.id !== avoid && wordsOf(sentence(item, answerOf(item))).length <= MAX_WORDS[difficulty],
   );
   const list = pool.length > 0 ? pool : pack().items;
   return list[Math.floor(Math.random() * list.length)];
-}
-
-/** Two or three wrong tiles: other forms of the verb, plus a word from elsewhere. */
-function distractorsFor(item: Item, words: string[]): string[] {
-  const taken = new Set(words.map((w) => w.toLowerCase()));
-  const out: string[] = [];
-  const row = pack().forms[item.verb]?.[item.tense] ?? [];
-  for (const form of row) {
-    if (out.length >= 2) break;
-    if (!taken.has(form.toLowerCase()) && !out.includes(form)) out.push(form);
-  }
-  const others = pack().items;
-  for (let tries = 0; tries < 20 && out.length < 3; tries += 1) {
-    const other = others[Math.floor(Math.random() * others.length)];
-    const ws = wordsOf(other.before + " " + other.after).filter((w) => w.length > 2 && !taken.has(w.toLowerCase()));
-    if (ws.length) {
-      const w = ws[Math.floor(Math.random() * ws.length)];
-      if (!out.includes(w)) out.push(w);
-    }
-  }
-  return out;
-}
-
-function shuffle<T>(list: T[]): T[] {
-  const copy = [...list];
-  for (let i = copy.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
 }
 
 export function Build() {

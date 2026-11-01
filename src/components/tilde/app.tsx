@@ -11,6 +11,7 @@ import {
   AudioLines,
   Brain,
   Sprout,
+  Route,
   Keyboard,
   LayoutGrid,
   Puzzle,
@@ -44,6 +45,7 @@ import { BadgeGrid, BadgeToast, useBadgeWatcher } from "./badges";
 import { Build } from "./build";
 import { CelticLandscape } from "./celtic";
 import { Foundations } from "./foundations";
+import { Lessons } from "./lessons";
 import { Phonetics } from "./phonetics";
 import { Words } from "./words";
 import { Learn } from "./learn";
@@ -236,6 +238,7 @@ export function Tilde() {
         {current.notice &&
         view !== "stats" &&
         view !== "placement" &&
+        view !== "lessons" &&
         !noticeSeen.split(",").includes(current.code) ? (
           <Notice notice={current.notice} onDismiss={() => hideNotice(current.code)} />
         ) : null}
@@ -268,6 +271,8 @@ export function Tilde() {
         <main className="pt-5 pb-16">
           {view === "foundations" && current.code === "ga" ? (
             <Foundations />
+          ) : view === "lessons" ? (
+            <Lessons key={lang} />
           ) : view === "phonetics" ? (
             <Phonetics />
           ) : view === "placement" ? (
@@ -361,6 +366,7 @@ function tabsFor(p: Pack): Tab[] {
   if (p.code === "ga") {
     return [
       { view: "foundations", label: "Foundations", icon: Sprout },
+      { view: "lessons", label: "Lessons", icon: Route },
       { view: "play", label: "Play", icon: PlayIcon },
       { view: "build", label: "Build", icon: Puzzle },
       { view: "words", label: "Words", icon: Brain },
@@ -371,6 +377,7 @@ function tabsFor(p: Pack): Tab[] {
   }
   return [
     { view: "play", label: "Play", icon: PlayIcon },
+    { view: "lessons", label: "Lessons", icon: Route },
     { view: "learn", label: "Learn", icon: BookOpen },
     { view: "build", label: "Build", icon: Puzzle },
     { view: "words", label: "Words", icon: Brain },
