@@ -89,6 +89,8 @@ export type Pack = {
   accentKeys: readonly string[];
   /** What a missing diacritic is called: accent, umlaut, fada. */
   markWord: string;
+  /** Optional "work in progress" notice shown while this language is selected. */
+  notice?: { title: string; body: string };
   /** BCP-47 language for speech; undefined = no speech features. */
   speechLang?: string;
   /** Letters that, at the end of `before`, mean the gap starts a sentence (e.g. ¿ ¡). */

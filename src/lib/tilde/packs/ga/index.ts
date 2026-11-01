@@ -127,6 +127,11 @@ export const irish: Pack = {
   guides: GUIDES,
   accentKeys: ["á", "é", "í", "ó", "ú", "'"],
   markWord: "fada",
+  notice: {
+    title: "Irish is a work in progress",
+    body:
+      "Every verb form is checked against the official grammar database (teanglann.ie) and every word against An Gramadóir's word list, but the sentences and stories haven't been reviewed by a fluent speaker yet, so some phrasing may sound unnatural. Only the standard written forms (An Caighdeán Oifigiúil) are taught — not regional dialects — and speaking practice isn't available.",
+  },
   speechLang: undefined,
   openers: /^$/,
   isIrregular: (verb) => IRREGULAR_VERBS.has(verb),

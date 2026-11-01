@@ -4,6 +4,7 @@ import {
   BookOpen,
   Check,
   ChevronDown,
+  Construction,
   Flame,
   Globe,
   FlaskConical,
@@ -94,6 +95,23 @@ export function Tilde() {
     setSkipPlacement(true);
     try {
       localStorage.setItem("tilde-skip-placement", "1");
+    } catch {
+      /* storage unavailable */
+    }
+  };
+
+  const [noticeSeen, setNoticeSeen] = useState(() => {
+    try {
+      return localStorage.getItem("tilde-notice-seen") ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const hideNotice = (code: string) => {
+    const next = `${noticeSeen},${code}`;
+    setNoticeSeen(next);
+    try {
+      localStorage.setItem("tilde-notice-seen", next);
     } catch {
       /* storage unavailable */
     }
@@ -196,6 +214,10 @@ export function Tilde() {
             </div>
             <p className="mt-2 px-1 text-xs text-muted">{current.levels[difficulty].help}</p>
           </section>
+        ) : null}
+
+        {current.notice && view !== "stats" && view !== "placement" && !noticeSeen.split(",").includes(current.code) ? (
+          <Notice notice={current.notice} onDismiss={() => hideNotice(current.code)} />
         ) : null}
 
         {view === "play" && stats.seen === 0 && !placement && !skipPlacement ? (
@@ -657,6 +679,8 @@ function Progress({
         </p>
       ) : null}
 
+      {pack().notice ? <Notice notice={pack().notice!} /> : null}
+
       <PlacementCard />
 
       <BadgeGrid />
@@ -736,6 +760,23 @@ function Progress({
             </button>
           )}
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+function Notice({ notice, onDismiss }: { notice: { title: string; body: string }; onDismiss?: () => void }) {
+  return (
+    <div className="rise mt-4 rounded-2xl border border-line bg-surface p-4" role="note">
+      <p className="flex items-center gap-2 text-sm font-semibold">
+        <Construction className="size-4 shrink-0 text-accent" aria-hidden="true" />
+        {notice.title}
+      </p>
+      <p className="mt-1.5 text-xs leading-relaxed text-muted">{notice.body}</p>
+      {onDismiss ? (
+        <button type="button" onClick={onDismiss} className="tap mt-2 text-xs font-semibold text-accent">
+          Got it
+        </button>
       ) : null}
     </div>
   );
