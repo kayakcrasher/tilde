@@ -34,6 +34,7 @@ export const FORMS: Record<string, Partial<Record<Tense, Row>>> = {
   },
   estudiar: {
     presente: ["estudio", "estudias", "estudia", "estudiamos", "estudiáis", "estudian"],
+    condicional: ["estudiaría", "estudiarías", "estudiaría", "estudiaríamos", "estudiaríais", "estudiarían"],
   },
   ser: {
     presente: ["soy", "eres", "es", "somos", "sois", "son"],
@@ -89,6 +90,7 @@ export const FORMS: Record<string, Partial<Record<Tense, Row>>> = {
     imperfecto: ["quería", "querías", "quería", "queríamos", "queríais", "querían"],
     futuro: ["querré", "querrás", "querrá", "querremos", "querréis", "querrán"],
     condicional: ["querría", "querrías", "querría", "querríamos", "querríais", "querrían"],
+    subjuntivo: ["quiera", "quieras", "quiera", "queramos", "queráis", "quieran"],
   },
   decir: {
     presente: ["digo", "dices", "dice", "decimos", "decís", "dicen"],
@@ -177,9 +179,12 @@ export const FORMS: Record<string, Partial<Record<Tense, Row>>> = {
   jugar: {
     presente: ["juego", "juegas", "juega", "jugamos", "jugáis", "juegan"],
     imperfecto: ["jugaba", "jugabas", "jugaba", "jugábamos", "jugabais", "jugaban"],
+    subjuntivo: ["juegue", "juegues", "juegue", "juguemos", "juguéis", "jueguen"],
   },
   traer: {
+    presente: ["traigo", "traes", "trae", "traemos", "traéis", "traen"],
     pretérito: ["traje", "trajiste", "trajo", "trajimos", "trajisteis", "trajeron"],
+    subjuntivo: ["traiga", "traigas", "traiga", "traigamos", "traigáis", "traigan"],
   },
   volver: {
     presente: ["vuelvo", "vuelves", "vuelve", "volvemos", "volvéis", "vuelven"],
@@ -256,6 +261,7 @@ export const FORMS: Record<string, Partial<Record<Tense, Row>>> = {
     presente: ["llamo", "llamas", "llama", "llamamos", "llamáis", "llaman"],
     pretérito: ["llamé", "llamaste", "llamó", "llamamos", "llamasteis", "llamaron"],
     futuro: ["llamaré", "llamarás", "llamará", "llamaremos", "llamaréis", "llamarán"],
+    condicional: ["llamaría", "llamarías", "llamaría", "llamaríamos", "llamaríais", "llamarían"],
     subjuntivo: ["llame", "llames", "llame", "llamemos", "llaméis", "llamen"],
   },
   necesitar: {
@@ -275,5 +281,171 @@ export const FORMS: Record<string, Partial<Record<Tense, Row>>> = {
     futuro: ["viajaré", "viajarás", "viajará", "viajaremos", "viajaréis", "viajarán"],
     condicional: ["viajaría", "viajarías", "viajaría", "viajaríamos", "viajaríais", "viajarían"],
     subjuntivo: ["viaje", "viajes", "viaje", "viajemos", "viajéis", "viajen"],
+  },
+  ayudar: {
+    presente: ["ayudo", "ayudas", "ayuda", "ayudamos", "ayudáis", "ayudan"],
+    pretérito: ["ayudé", "ayudaste", "ayudó", "ayudamos", "ayudasteis", "ayudaron"],
+    futuro: ["ayudaré", "ayudarás", "ayudará", "ayudaremos", "ayudaréis", "ayudarán"],
+    condicional: ["ayudaría", "ayudarías", "ayudaría", "ayudaríamos", "ayudaríais", "ayudarían"],
+    subjuntivo: ["ayude", "ayudes", "ayude", "ayudemos", "ayudéis", "ayuden"],
+  },
+  bailar: {
+    presente: ["bailo", "bailas", "baila", "bailamos", "bailáis", "bailan"],
+    pretérito: ["bailé", "bailaste", "bailó", "bailamos", "bailasteis", "bailaron"],
+    imperfecto: ["bailaba", "bailabas", "bailaba", "bailábamos", "bailabais", "bailaban"],
+    condicional: ["bailaría", "bailarías", "bailaría", "bailaríamos", "bailaríais", "bailarían"],
+  },
+  cambiar: {
+    condicional: ["cambiaría", "cambiarías", "cambiaría", "cambiaríamos", "cambiaríais", "cambiarían"],
+    subjuntivo: ["cambie", "cambies", "cambie", "cambiemos", "cambiéis", "cambien"],
+  },
+  caminar: {
+    presente: ["camino", "caminas", "camina", "caminamos", "camináis", "caminan"],
+    imperfecto: ["caminaba", "caminabas", "caminaba", "caminábamos", "caminabais", "caminaban"],
+  },
+  cantar: {
+    presente: ["canto", "cantas", "canta", "cantamos", "cantáis", "cantan"],
+    pretérito: ["canté", "cantaste", "cantó", "cantamos", "cantasteis", "cantaron"],
+    imperfecto: ["cantaba", "cantabas", "cantaba", "cantábamos", "cantabais", "cantaban"],
+    futuro: ["cantaré", "cantarás", "cantará", "cantaremos", "cantaréis", "cantarán"],
+  },
+  compartir: {
+    presente: ["comparto", "compartes", "comparte", "compartimos", "compartís", "comparten"],
+  },
+  comprender: {
+    presente: ["comprendo", "comprendes", "comprende", "comprendemos", "comprendéis", "comprenden"],
+  },
+  conducir: {
+    presente: ["conduzco", "conduces", "conduce", "conducimos", "conducís", "conducen"],
+    pretérito: ["conduje", "condujiste", "condujo", "condujimos", "condujisteis", "condujeron"],
+    imperfecto: ["conducía", "conducías", "conducía", "conducíamos", "conducíais", "conducían"],
+    subjuntivo: ["conduzca", "conduzcas", "conduzca", "conduzcamos", "conduzcáis", "conduzcan"],
+  },
+  costar: {
+    presente: ["cuesto", "cuestas", "cuesta", "costamos", "costáis", "cuestan"],
+  },
+  creer: {
+    presente: ["creo", "crees", "cree", "creemos", "creéis", "creen"],
+    pretérito: ["creí", "creíste", "creyó", "creímos", "creísteis", "creyeron"],
+    imperfecto: ["creía", "creías", "creía", "creíamos", "creíais", "creían"],
+    subjuntivo: ["crea", "creas", "crea", "creamos", "creáis", "crean"],
+  },
+  deber: {
+    presente: ["debo", "debes", "debe", "debemos", "debéis", "deben"],
+  },
+  decidir: {
+    presente: ["decido", "decides", "decide", "decidimos", "decidís", "deciden"],
+    pretérito: ["decidí", "decidiste", "decidió", "decidimos", "decidisteis", "decidieron"],
+  },
+  enseñar: {
+    presente: ["enseño", "enseñas", "enseña", "enseñamos", "enseñáis", "enseñan"],
+    pretérito: ["enseñé", "enseñaste", "enseñó", "enseñamos", "enseñasteis", "enseñaron"],
+    imperfecto: ["enseñaba", "enseñabas", "enseñaba", "enseñábamos", "enseñabais", "enseñaban"],
+  },
+  escuchar: {
+    presente: ["escucho", "escuchas", "escucha", "escuchamos", "escucháis", "escuchan"],
+    pretérito: ["escuché", "escuchaste", "escuchó", "escuchamos", "escuchasteis", "escucharon"],
+    imperfecto: ["escuchaba", "escuchabas", "escuchaba", "escuchábamos", "escuchabais", "escuchaban"],
+    subjuntivo: ["escuche", "escuches", "escuche", "escuchemos", "escuchéis", "escuchen"],
+  },
+  ganar: {
+    presente: ["gano", "ganas", "gana", "ganamos", "ganáis", "ganan"],
+    pretérito: ["gané", "ganaste", "ganó", "ganamos", "ganasteis", "ganaron"],
+    futuro: ["ganaré", "ganarás", "ganará", "ganaremos", "ganaréis", "ganarán"],
+  },
+  limpiar: {
+    presente: ["limpio", "limpias", "limpia", "limpiamos", "limpiáis", "limpian"],
+  },
+  llevar: {
+    presente: ["llevo", "llevas", "lleva", "llevamos", "lleváis", "llevan"],
+    pretérito: ["llevé", "llevaste", "llevó", "llevamos", "llevasteis", "llevaron"],
+    imperfecto: ["llevaba", "llevabas", "llevaba", "llevábamos", "llevabais", "llevaban"],
+    futuro: ["llevaré", "llevarás", "llevará", "llevaremos", "llevaréis", "llevarán"],
+    subjuntivo: ["lleve", "lleves", "lleve", "llevemos", "llevéis", "lleven"],
+  },
+  mirar: {
+    presente: ["miro", "miras", "mira", "miramos", "miráis", "miran"],
+    pretérito: ["miré", "miraste", "miró", "miramos", "mirasteis", "miraron"],
+    imperfecto: ["miraba", "mirabas", "miraba", "mirábamos", "mirabais", "miraban"],
+  },
+  nadar: {
+    presente: ["nado", "nadas", "nada", "nadamos", "nadáis", "nadan"],
+    imperfecto: ["nadaba", "nadabas", "nadaba", "nadábamos", "nadabais", "nadaban"],
+  },
+  oír: {
+    presente: ["oigo", "oyes", "oye", "oímos", "oís", "oyen"],
+    pretérito: ["oí", "oíste", "oyó", "oímos", "oísteis", "oyeron"],
+    imperfecto: ["oía", "oías", "oía", "oíamos", "oíais", "oían"],
+    subjuntivo: ["oiga", "oigas", "oiga", "oigamos", "oigáis", "oigan"],
+  },
+  pagar: {
+    presente: ["pago", "pagas", "paga", "pagamos", "pagáis", "pagan"],
+    pretérito: ["pagué", "pagaste", "pagó", "pagamos", "pagasteis", "pagaron"],
+    futuro: ["pagaré", "pagarás", "pagará", "pagaremos", "pagaréis", "pagarán"],
+    condicional: ["pagaría", "pagarías", "pagaría", "pagaríamos", "pagaríais", "pagarían"],
+    subjuntivo: ["pague", "pagues", "pague", "paguemos", "paguéis", "paguen"],
+  },
+  preguntar: {
+    presente: ["pregunto", "preguntas", "pregunta", "preguntamos", "preguntáis", "preguntan"],
+  },
+  preparar: {
+    presente: ["preparo", "preparas", "prepara", "preparamos", "preparáis", "preparan"],
+    pretérito: ["preparé", "preparaste", "preparó", "preparamos", "preparasteis", "prepararon"],
+    futuro: ["prepararé", "prepararás", "preparará", "prepararemos", "prepararéis", "prepararán"],
+  },
+  recibir: {
+    presente: ["recibo", "recibes", "recibe", "recibimos", "recibís", "reciben"],
+    pretérito: ["recibí", "recibiste", "recibió", "recibimos", "recibisteis", "recibieron"],
+    futuro: ["recibiré", "recibirás", "recibirá", "recibiremos", "recibiréis", "recibirán"],
+    subjuntivo: ["reciba", "recibas", "reciba", "recibamos", "recibáis", "reciban"],
+  },
+  recordar: {
+    presente: ["recuerdo", "recuerdas", "recuerda", "recordamos", "recordáis", "recuerdan"],
+    subjuntivo: ["recuerde", "recuerdes", "recuerde", "recordemos", "recordéis", "recuerden"],
+  },
+  seguir: {
+    presente: ["sigo", "sigues", "sigue", "seguimos", "seguís", "siguen"],
+    pretérito: ["seguí", "seguiste", "siguió", "seguimos", "seguisteis", "siguieron"],
+    subjuntivo: ["siga", "sigas", "siga", "sigamos", "sigáis", "sigan"],
+  },
+  sentir: {
+    presente: ["siento", "sientes", "siente", "sentimos", "sentís", "sienten"],
+    pretérito: ["sentí", "sentiste", "sintió", "sentimos", "sentisteis", "sintieron"],
+    subjuntivo: ["sienta", "sientas", "sienta", "sintamos", "sintáis", "sientan"],
+  },
+  subir: {
+    presente: ["subo", "subes", "sube", "subimos", "subís", "suben"],
+    pretérito: ["subí", "subiste", "subió", "subimos", "subisteis", "subieron"],
+    futuro: ["subiré", "subirás", "subirá", "subiremos", "subiréis", "subirán"],
+    subjuntivo: ["suba", "subas", "suba", "subamos", "subáis", "suban"],
+  },
+  terminar: {
+    presente: ["termino", "terminas", "termina", "terminamos", "termináis", "terminan"],
+    pretérito: ["terminé", "terminaste", "terminó", "terminamos", "terminasteis", "terminaron"],
+    futuro: ["terminaré", "terminarás", "terminará", "terminaremos", "terminaréis", "terminarán"],
+    subjuntivo: ["termine", "termines", "termine", "terminemos", "terminéis", "terminen"],
+  },
+  tocar: {
+    presente: ["toco", "tocas", "toca", "tocamos", "tocáis", "tocan"],
+    pretérito: ["toqué", "tocaste", "tocó", "tocamos", "tocasteis", "tocaron"],
+  },
+  tomar: {
+    presente: ["tomo", "tomas", "toma", "tomamos", "tomáis", "toman"],
+  },
+  vender: {
+    presente: ["vendo", "vendes", "vende", "vendemos", "vendéis", "venden"],
+    pretérito: ["vendí", "vendiste", "vendió", "vendimos", "vendisteis", "vendieron"],
+    imperfecto: ["vendía", "vendías", "vendía", "vendíamos", "vendíais", "vendían"],
+    futuro: ["venderé", "venderás", "venderá", "venderemos", "venderéis", "venderán"],
+    condicional: ["vendería", "venderías", "vendería", "venderíamos", "venderíais", "venderían"],
+    subjuntivo: ["venda", "vendas", "venda", "vendamos", "vendáis", "vendan"],
+  },
+  visitar: {
+    presente: ["visito", "visitas", "visita", "visitamos", "visitáis", "visitan"],
+    pretérito: ["visité", "visitaste", "visitó", "visitamos", "visitasteis", "visitaron"],
+    imperfecto: ["visitaba", "visitabas", "visitaba", "visitábamos", "visitabais", "visitaban"],
+    futuro: ["visitaré", "visitarás", "visitará", "visitaremos", "visitaréis", "visitarán"],
+    condicional: ["visitaría", "visitarías", "visitaría", "visitaríamos", "visitaríais", "visitarían"],
+    subjuntivo: ["visite", "visites", "visite", "visitemos", "visitéis", "visiten"],
   },
 };
