@@ -134,8 +134,17 @@ export function countFor(difficulty: Difficulty): number {
   return ITEMS.filter((item) => difficultyFor(item) === difficulty).length;
 }
 
+/** True when the missing verb opens the sentence (or a ¿…? / ¡…! clause). */
+export function atSentenceStart(item: Item): boolean {
+  return !item.before || /[¿¡]$/.test(item.before);
+}
+
+export function capitalize(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
 export function sentence(item: Item, filled?: string): string {
-  const gap = filled ?? "___";
+  const gap = filled === undefined ? "___" : atSentenceStart(item) ? capitalize(filled) : filled;
   const left = !item.before ? "" : /[¿¡]$/.test(item.before) ? item.before : `${item.before} `;
   const tail = !item.after ? "" : /^[,.?;!]/.test(item.after) ? item.after : ` ${item.after}`;
   return `${left}${gap}${tail}`.trim();

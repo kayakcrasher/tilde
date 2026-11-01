@@ -80,6 +80,34 @@
   }
 }
 
+.glow {
+  background:
+    radial-gradient(60% 100% at 15% 0%, color-mix(in oklab, var(--color-accent) 18%, transparent), transparent 70%),
+    radial-gradient(50% 80% at 95% 0%, color-mix(in oklab, #ffb347 10%, transparent), transparent 70%);
+}
+
+.card {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--color-surface) 100%, white 3%), var(--color-surface));
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 6%, transparent),
+    0 20px 40px -24px rgb(0 0 0 / 0.6);
+}
+
+.xp-fill {
+  background: linear-gradient(90deg, var(--color-accent), #ffa04d);
+  transition: width 600ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.gap-slot {
+  animation: tilde-blink 1.6s ease-in-out infinite;
+}
+
+@keyframes tilde-blink {
+  50% {
+    border-color: color-mix(in oklab, var(--color-accent) 35%, transparent);
+  }
+}
+
 .safe-area {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
@@ -111,7 +139,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .rise,
-  .pop {
+  .pop,
+  .gap-slot {
     animation: none;
   }
 }
