@@ -3,6 +3,7 @@ import { FORMS } from "./forms";
 import { GUIDES, TENSES, regularForm, splitForm } from "./guides";
 import { ITEMS } from "./items";
 import { STORIES } from "./stories";
+import { VOCAB } from "./vocab";
 
 export const spanish: Pack = {
   code: "es",
@@ -20,6 +21,7 @@ export const spanish: Pack = {
   forms: FORMS,
   items: ITEMS,
   stories: STORIES,
+  vocab: VOCAB,
   guides: GUIDES,
   accentKeys: ["á", "é", "í", "ó", "ú", "ü", "ñ"],
   markWord: "accent",

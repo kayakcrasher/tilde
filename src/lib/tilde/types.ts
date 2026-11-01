@@ -59,6 +59,16 @@ export type StoryQuestion = {
   answer: 0 | 1 | 2 | 3;
 };
 
+export type VocabEntry = {
+  id: string;
+  /** Dictionary form shown to the learner (infinitive for verbs). */
+  word: string;
+  en: string;
+  kind: "verb" | "word";
+  /** Lower-case spellings that count as this word (verbs use their tables). */
+  forms?: string[];
+};
+
 export type Story = {
   id: string;
   title: string;
@@ -85,6 +95,7 @@ export type Pack = {
   forms: Forms;
   items: Item[];
   stories: Story[];
+  vocab: VocabEntry[];
   guides: Record<Tense, Guide>;
   accentKeys: readonly string[];
   /** What a missing diacritic is called: accent, umlaut, fada. */

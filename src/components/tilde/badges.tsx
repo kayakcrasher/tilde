@@ -8,10 +8,12 @@ export function useBadgeWatcher() {
   const speech = usePlay((state) => state.speech);
   const stories = usePlay((state) => state.stories);
   const placement = usePlay((state) => state.placement);
+  const vocab = usePlay((state) => state.vocab);
+  const build = usePlay((state) => state.build);
   const unlock = usePlay((state) => state.unlock);
   useEffect(() => {
-    unlock(earnedBadges({ stats, speech, stories, placement }));
-  }, [stats, speech, stories, placement, unlock]);
+    unlock(earnedBadges({ stats, speech, stories, placement, vocab, build }));
+  }, [stats, speech, stories, placement, vocab, build, unlock]);
 }
 
 export function BadgeGrid() {

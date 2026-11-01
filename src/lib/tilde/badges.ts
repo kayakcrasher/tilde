@@ -1,6 +1,7 @@
 import { levelSpan } from "./engine";
 import { PACKS, pack } from "./lang";
-import type { Placement, SpeechStats, StoryScore } from "./store";
+import type { BuildStats, Placement, SpeechStats, StoryScore } from "./store";
+import { KNOWN_BOX, type Card } from "./vocab";
 import type { Stats } from "./types";
 
 export type BadgeState = {
@@ -8,7 +9,13 @@ export type BadgeState = {
   speech: SpeechStats;
   stories: Record<string, StoryScore>;
   placement: Placement | null;
+  vocab: Record<string, Card>;
+  build: BuildStats;
 };
+
+function knownWords(s: BadgeState): number {
+  return Object.values(s.vocab).filter((card) => card.box >= KNOWN_BOX).length;
+}
 
 export type Badge = {
   id: string;
@@ -102,6 +109,10 @@ export const BADGES: Badge[] = [
     goal: "Finish every story",
     earned: (s) => pack().stories.length > 0 && storiesDone(s) >= pack().stories.length,
   },
+  { id: "build-10", icon: "🧩", title: "Wordsmith", goal: "Build 10 sentences correctly", earned: (s) => s.build.right >= 10 },
+  { id: "build-typed", icon: "✍️", title: "Free writer", goal: "Type 10 whole sentences correctly", earned: (s) => s.build.typed >= 10 },
+  { id: "vocab-25", icon: "🧠", title: "Word collector", goal: "Know 25 words", earned: (s) => knownWords(s) >= 25 },
+  { id: "vocab-100", icon: "📒", title: "Walking dictionary", goal: "Know 100 words", earned: (s) => knownWords(s) >= 100 },
   { id: "placement", icon: "🧪", title: "Know thyself", goal: "Take the placement test", earned: (s) => s.placement !== null },
   { id: "bilingual", icon: "🌍", title: "Bilingual", goal: "Practise two languages", earned: () => languagesStarted() >= 2 },
   { id: "polyglot", icon: "🗺️", title: "Polyglot", goal: "Practise all three languages", earned: () => languagesStarted() >= 3 },

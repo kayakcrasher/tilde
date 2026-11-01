@@ -8,8 +8,10 @@ import {
   Flame,
   Globe,
   FlaskConical,
+  Brain,
   Keyboard,
   LayoutGrid,
+  Puzzle,
   Library,
   Lightbulb,
   Mic,
@@ -36,9 +38,12 @@ import { PACKS, pack, useLang, type LangCode } from "@/lib/tilde/lang";
 import { switchLanguage, usePlay } from "@/lib/tilde/store";
 import { DIFFICULTIES, type Difficulty, type Item, type Tense } from "@/lib/tilde/types";
 import { BadgeGrid, BadgeToast, useBadgeWatcher } from "./badges";
+import { Build } from "./build";
+import { Words } from "./words";
 import { Learn } from "./learn";
 import { PLACEMENT_BLURB, PlacementTest } from "./placement";
 import { Stories } from "./stories";
+import { wordsIn } from "@/lib/tilde/vocab";
 import { Chip, buzz } from "./shared";
 import { Speak } from "./speak";
 
@@ -166,12 +171,18 @@ export function Tilde() {
           <div className="xp-fill h-full rounded-full" style={{ width: `${xpWidth}%` }} />
         </div>
 
-        <nav className={`mt-5 grid ${current.speechLang ? "grid-cols-5" : "grid-cols-4"} gap-1 rounded-full border border-line bg-surface p-1`} aria-label="Sections">
+        <nav className={`mt-5 grid ${current.speechLang ? "grid-cols-7" : "grid-cols-6"} gap-0.5 rounded-full border border-line bg-surface p-1`} aria-label="Sections">
           <Segment on={view === "play"} onClick={() => setView("play")}>
             <PlayIcon className="size-3.5" aria-hidden="true" /> Play
           </Segment>
           <Segment on={view === "learn"} onClick={() => setView("learn")}>
             <BookOpen className="size-3.5" aria-hidden="true" /> Learn
+          </Segment>
+          <Segment on={view === "build"} onClick={() => setView("build")}>
+            <Puzzle className="size-3.5" aria-hidden="true" /> Build
+          </Segment>
+          <Segment on={view === "words"} onClick={() => setView("words")}>
+            <Brain className="size-3.5" aria-hidden="true" /> Words
           </Segment>
           <Segment on={view === "stories"} onClick={() => setView("stories")}>
             <Library className="size-3.5" aria-hidden="true" /> Stories
@@ -186,7 +197,7 @@ export function Tilde() {
           </Segment>
         </nav>
 
-        {view === "play" || view === "speak" ? (
+        {view === "play" || view === "speak" || view === "build" ? (
           <section className="mt-4" aria-label="Difficulty">
             <div className="grid grid-cols-3 gap-2" role="group" aria-label="Difficulty">
               {DIFFICULTIES.map((level) => {
@@ -195,7 +206,7 @@ export function Tilde() {
                   <button
                     key={level}
                     type="button"
-                    onClick={() => (view === "speak" ? setLevel(level) : setDifficulty(level))}
+                    onClick={() => (view === "play" ? setDifficulty(level) : setLevel(level))}
                     aria-pressed={on}
                     className={`tap rounded-2xl border px-2 py-2 text-left leading-tight ${
                       on ? "border-accent bg-accent/12 text-fg" : "border-line bg-surface/60 text-fg"
@@ -244,6 +255,10 @@ export function Tilde() {
         <main className="pt-5 pb-16">
           {view === "placement" ? (
             <PlacementTest key={lang} />
+          ) : view === "build" ? (
+            <Build key={lang} />
+          ) : view === "words" ? (
+            <Words key={lang} />
           ) : view === "stories" ? (
             <Stories key={lang} />
           ) : view === "learn" ? (
@@ -308,7 +323,7 @@ function Segment({ on, onClick, children }: { on: boolean; onClick: () => void; 
       type="button"
       onClick={onClick}
       aria-current={on ? "page" : undefined}
-      className={`tap flex min-h-10 flex-col items-center justify-center gap-0.5 rounded-full text-xs font-semibold min-[400px]:flex-row min-[400px]:gap-1.5 min-[400px]:text-sm ${
+      className={`tap flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-full text-[10.5px] font-semibold sm:text-xs ${
         on ? "bg-fg text-bg shadow-sm" : "text-muted hover:text-fg"
       }`}
     >
@@ -356,6 +371,7 @@ function Play({
     const graded = gradeTyped(raw, answer);
     const accent = via === "type" && graded.accent;
     const points = onResolve(item, graded.ok, via, accent);
+    usePlay.getState().markSeen(wordsIn(sentence(item, answer)));
     setResult({ ok: graded.ok, points, accent, via, given: raw.trim() });
     buzz(graded.ok ? 12 : [30, 60, 30]);
   }

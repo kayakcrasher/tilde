@@ -2,9 +2,14 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { applyAnswer, difficultyFor, emptyStats, itemById, nextItem } from "./engine";
 import { activate, pack } from "./lang";
+import { emptyCard, review, type Card } from "./vocab";
 import type { Difficulty, Item, Stats } from "./types";
 
-export type View = "play" | "learn" | "stories" | "speak" | "stats" | "placement";
+export type View = "play" | "learn" | "build" | "words" | "stories" | "speak" | "stats" | "placement";
+
+export type BuildStats = { done: number; right: number; typed: number; streak: number; best: number };
+
+const emptyBuild = (): BuildStats => ({ done: 0, right: 0, typed: 0, streak: 0, best: 0 });
 
 export type StoryScore = { best: number; total: number };
 
@@ -27,6 +32,9 @@ type PlayState = {
   /** Best quiz score per story id. */
   stories: Record<string, StoryScore>;
   placement: Placement | null;
+  /** Spaced-repetition card per vocabulary id. */
+  vocab: Record<string, Card>;
+  build: BuildStats;
   /** Unlocked badge id → when (ms). */
   badges: Record<string, number>;
   /** Badges unlocked this session that haven't been shown yet. */
@@ -48,6 +56,12 @@ type PlayState = {
   finishStory: (id: string, right: number, total: number) => number;
   savePlacement: (placement: Placement) => void;
   unlock: (ids: string[]) => void;
+  /** Count words as seen (they came up in a sentence). */
+  markSeen: (ids: string[]) => void;
+  /** Record a vocabulary review; returns XP earned. */
+  reviewWord: (id: string, ok: boolean) => number;
+  /** Record a built sentence; returns XP earned. */
+  built: (ok: boolean, typed: boolean, base: number, perfect: boolean) => number;
   dismissFresh: () => void;
 };
 
@@ -58,6 +72,8 @@ export const usePlay = create<PlayState>()(
       speech: emptySpeech(),
       stories: {},
       placement: null,
+      vocab: {},
+      build: emptyBuild(),
       badges: {},
       fresh: [],
       cardId: pack().items[0].id,
@@ -96,6 +112,8 @@ export const usePlay = create<PlayState>()(
           speech: emptySpeech(),
           stories: {},
           placement: null,
+          vocab: {},
+          build: emptyBuild(),
           badges: {},
           fresh: [],
           cardId: nextItem(stats, [], get().difficulty).id,
@@ -141,6 +159,38 @@ export const usePlay = create<PlayState>()(
         set({ badges, fresh: [...get().fresh, ...added] });
       },
       dismissFresh: () => set({ fresh: get().fresh.slice(1) }),
+      markSeen: (ids) => {
+        if (ids.length === 0) return;
+        const vocab = { ...get().vocab };
+        for (const id of ids) {
+          const card = vocab[id] ?? emptyCard();
+          vocab[id] = { ...card, seen: card.seen + 1 };
+        }
+        set({ vocab });
+      },
+      reviewWord: (id, ok) => {
+        const before = get().vocab[id];
+        const card = review(before, ok);
+        const xp = ok ? 2 + card.box : 0;
+        set({ vocab: { ...get().vocab, [id]: card }, stats: { ...get().stats, xp: get().stats.xp + xp } });
+        return xp;
+      },
+      built: (ok, typed, base, perfect) => {
+        const prev = get().build;
+        const streak = ok ? prev.streak + 1 : 0;
+        const xp = ok ? base * (typed ? 2 : 1) + (typed && perfect ? 3 : 0) : 0;
+        set({
+          build: {
+            done: prev.done + 1,
+            right: prev.right + (ok ? 1 : 0),
+            typed: prev.typed + (ok && typed ? 1 : 0),
+            streak,
+            best: Math.max(prev.best, streak),
+          },
+          stats: { ...get().stats, xp: get().stats.xp + xp },
+        });
+        return xp;
+      },
     }),
     {
       name: "tilde-v1",
@@ -150,6 +200,8 @@ export const usePlay = create<PlayState>()(
         speech: state.speech,
         stories: state.stories,
         placement: state.placement,
+        vocab: state.vocab,
+        build: state.build,
         badges: state.badges,
         cardId: state.cardId,
         difficulty: state.difficulty,
@@ -189,6 +241,8 @@ export function switchLanguage(code: string): void {
     speech: { ...emptySpeech(), ...saved.speech },
     stories: saved.stories ?? {},
     placement: saved.placement ?? null,
+    vocab: saved.vocab ?? {},
+    build: { ...emptyBuild(), ...saved.build },
     badges: saved.badges ?? {},
     fresh: [],
     difficulty,
