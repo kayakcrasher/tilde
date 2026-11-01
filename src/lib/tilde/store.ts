@@ -16,6 +16,9 @@ type PlayState = {
   cardId: string;
   difficulty: Difficulty;
   view: View;
+  /** Answer by typing instead of picking from choices (remembered). */
+  typeMode: boolean;
+  setTypeMode: (typeMode: boolean) => void;
   setView: (view: View) => void;
   setDifficulty: (difficulty: Difficulty) => void;
   resolve: (item: Item, ok: boolean, via: "type" | "choice", accent: boolean) => number;
@@ -33,6 +36,8 @@ export const usePlay = create<PlayState>()(
       cardId: pack().items[0].id,
       difficulty: "facil",
       view: "play",
+      typeMode: false,
+      setTypeMode: (typeMode) => set({ typeMode }),
       setView: (view) => set({ view }),
       setDifficulty: (difficulty) => {
         const current = itemById(get().cardId);
@@ -86,6 +91,7 @@ export const usePlay = create<PlayState>()(
         speech: state.speech,
         cardId: state.cardId,
         difficulty: state.difficulty,
+        typeMode: state.typeMode,
       }),
     },
   ),
@@ -120,6 +126,7 @@ export function switchLanguage(code: string): void {
     stats,
     speech: { ...emptySpeech(), ...saved.speech },
     difficulty,
+    typeMode: saved.typeMode ?? false,
     cardId: card && difficultyFor(card) === difficulty ? card.id : nextItem(stats, [], difficulty).id,
     view: view === "speak" && !next.speechLang ? "play" : view,
   });

@@ -1,5 +1,19 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BarChart3, BookOpen, Check, ChevronDown, Flame, Globe, Lightbulb, Mic, Play as PlayIcon, RotateCcw, X } from "lucide-react";
+import {
+  BarChart3,
+  BookOpen,
+  Check,
+  ChevronDown,
+  Flame,
+  Globe,
+  Keyboard,
+  LayoutGrid,
+  Lightbulb,
+  Mic,
+  Play as PlayIcon,
+  RotateCcw,
+  X,
+} from "lucide-react";
 import {
   CHOICE_POINTS,
   TYPE_POINTS,
@@ -239,7 +253,11 @@ function Play({
   onNext: () => void;
 }) {
   const [draft, setDraft] = useState("");
-  const [open, setOpen] = useState(false);
+  const typeMode = usePlay((state) => state.typeMode);
+  const setTypeMode = usePlay((state) => state.setTypeMode);
+  // Typing only earns full points if the choices were never shown for this card.
+  const [sawChoices, setSawChoices] = useState(!typeMode);
+  const open = !typeMode;
   const [result, setResult] = useState<{
     ok: boolean;
     points: number;
@@ -286,16 +304,25 @@ function Play({
 
   function goNext() {
     setDraft("");
-    setOpen(false);
     setResult(null);
     onNext();
   }
 
-  // Focus the answer on desktop (fine pointer) so you can type straight away;
-  // on phones this would pop the keyboard over the sentence, so leave it.
+  function switchToTyping() {
+    setTypeMode(true);
+    requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }));
+  }
+
+  function switchToChoices() {
+    setSawChoices(true);
+    setTypeMode(false);
+  }
+
+  // In typing mode, focus the answer on desktop (fine pointer) so you can type
+  // straight away; on phones this would pop the keyboard over the sentence.
   useEffect(() => {
-    if (window.matchMedia?.("(pointer: fine)").matches) inputRef.current?.focus({ preventScroll: true });
-  }, []);
+    if (typeMode && window.matchMedia?.("(pointer: fine)").matches) inputRef.current?.focus({ preventScroll: true });
+  }, [typeMode]);
 
   useEffect(() => {
     if (result) nextRef.current?.focus({ preventScroll: true });
@@ -405,83 +432,104 @@ function Play({
           onSubmit={(event) => {
             event.preventDefault();
             if (!draft.trim()) return;
-            finish(draft, open ? "choice" : "type");
+            finish(draft, sawChoices ? "choice" : "type");
           }}
         >
-          <label className="sr-only" htmlFor="answer">
-            Missing verb
-          </label>
-          <div className="flex items-center gap-2 rounded-2xl border border-line bg-surface px-4 focus-within:border-accent">
-            <input
-              ref={inputRef}
-              id="answer"
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              autoComplete="off"
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              lang="es"
-              enterKeyHint="done"
-              placeholder="Type the verb…"
-              className="min-w-0 flex-1 bg-transparent py-3.5 font-display text-2xl font-semibold text-fg placeholder:text-muted/50 focus:outline-none"
-            />
-            <span className="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 text-xs font-bold text-accent tabular-nums">
-              +{open ? choicePoints : typePoints}
-            </span>
-          </div>
-          <div className="mt-2.5 flex flex-wrap gap-1.5" role="group" aria-label="Insert accented letter">
-            {pack().accentKeys.map((char) => (
-              <button
-                key={char}
-                type="button"
-                onPointerDown={(event) => event.preventDefault()}
-                onClick={() => insert(char)}
-                className="tap h-10 min-w-10 flex-1 rounded-xl border border-line bg-surface/60 font-sans text-lg font-semibold text-fg hover:border-muted"
-                aria-label={`Insert ${char}`}
-              >
-                {char}
-              </button>
-            ))}
-          </div>
-          <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
-            <button
-              type="submit"
-              disabled={!draft.trim()}
-              className="tap min-h-13 rounded-2xl bg-accent text-base font-semibold text-ink shadow-[0_8px_24px_-8px] shadow-accent/60 disabled:opacity-40 disabled:shadow-none"
-            >
-              Check
-            </button>
-            <button
-              type="button"
-              onClick={() => setOpen(true)}
-              disabled={open}
-              className="tap min-h-13 rounded-2xl border border-line bg-surface px-5 text-sm font-semibold text-fg disabled:text-muted"
-            >
-              {open ? `Choices · +${choicePoints}` : "Show choices"}
-            </button>
-          </div>
           {open ? (
-            <ul className="mt-3 grid grid-cols-2 gap-2">
-              {choices.map((choice, index) => (
-                <li key={choice} className="rise" style={{ animationDelay: `${index * 40}ms` }}>
-                  <button
-                    type="button"
-                    onClick={() => finish(choice, "choice")}
-                    className="tap relative min-h-14 w-full rounded-2xl border border-line bg-surface px-3 font-display text-lg font-semibold text-fg hover:border-accent"
-                  >
-                    <span className="absolute top-1.5 left-2.5 hidden font-sans text-[10px] font-normal text-muted [@media(pointer:fine)]:block">
-                      {index + 1}
-                    </span>
-                    {choice}
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <>
+              <p className="mb-2 flex items-center justify-between px-1 text-xs text-muted">
+                <span>Pick the right form</span>
+                <span className="rounded-full bg-accent/15 px-2 py-0.5 font-bold text-accent tabular-nums">
+                  +{choicePoints}
+                </span>
+              </p>
+              <ul className="grid grid-cols-2 gap-2">
+                {choices.map((choice, index) => (
+                  <li key={choice} className="rise" style={{ animationDelay: `${index * 40}ms` }}>
+                    <button
+                      type="button"
+                      onClick={() => finish(choice, "choice")}
+                      className="tap relative min-h-16 w-full rounded-2xl border border-line bg-surface px-3 font-display text-lg font-semibold text-fg hover:border-accent"
+                    >
+                      <span className="absolute top-1.5 left-2.5 hidden font-sans text-[10px] font-normal text-muted [@media(pointer:fine)]:block">
+                        {index + 1}
+                      </span>
+                      {choice}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <button
+                type="button"
+                onClick={switchToTyping}
+                className="tap mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-line text-sm font-semibold text-muted hover:border-muted hover:text-fg"
+              >
+                <Keyboard className="size-4" aria-hidden="true" /> Type it instead
+              </button>
+              <p className="mt-2 text-center text-xs text-muted">
+                Type without seeing the choices for {typePoints} points.
+              </p>
+            </>
           ) : (
-            <p className="mt-3 text-center text-xs text-muted">
-              Typing scores {typePoints}. Choices score {choicePoints}. Getting every {pack().markWord} right earns a bonus.
-            </p>
+            <>
+              <label className="sr-only" htmlFor="answer">
+                Missing verb
+              </label>
+              <div className="flex items-center gap-2 rounded-2xl border border-line bg-surface px-4 focus-within:border-accent">
+                <input
+                  ref={inputRef}
+                  id="answer"
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  autoComplete="off"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  lang={pack().code}
+                  enterKeyHint="done"
+                  placeholder="Type the verb…"
+                  className="min-w-0 flex-1 bg-transparent py-3.5 font-display text-2xl font-semibold text-fg placeholder:text-muted/50 focus:outline-none"
+                />
+                <span className="shrink-0 rounded-full bg-accent/15 px-2 py-0.5 text-xs font-bold text-accent tabular-nums">
+                  +{sawChoices ? choicePoints : typePoints}
+                </span>
+              </div>
+              <div className="mt-2.5 flex flex-wrap gap-1.5" role="group" aria-label="Insert accented letter">
+                {pack().accentKeys.map((char) => (
+                  <button
+                    key={char}
+                    type="button"
+                    onPointerDown={(event) => event.preventDefault()}
+                    onClick={() => insert(char)}
+                    className="tap h-10 min-w-10 flex-1 rounded-xl border border-line bg-surface/60 font-sans text-lg font-semibold text-fg hover:border-muted"
+                    aria-label={`Insert ${char}`}
+                  >
+                    {char}
+                  </button>
+                ))}
+              </div>
+              <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
+                <button
+                  type="submit"
+                  disabled={!draft.trim()}
+                  className="tap min-h-13 rounded-2xl bg-accent text-base font-semibold text-ink shadow-[0_8px_24px_-8px] shadow-accent/60 disabled:opacity-40 disabled:shadow-none"
+                >
+                  Check
+                </button>
+                <button
+                  type="button"
+                  onClick={switchToChoices}
+                  className="tap flex min-h-13 items-center gap-1.5 rounded-2xl border border-line bg-surface px-4 text-sm font-semibold text-fg"
+                >
+                  <LayoutGrid className="size-4" aria-hidden="true" /> Choices
+                </button>
+              </div>
+              <p className="mt-3 text-center text-xs text-muted">
+                {sawChoices
+                  ? `You've seen the choices, so this scores ${choicePoints}.`
+                  : `Typing scores ${typePoints}. Getting every ${pack().markWord} right earns a bonus.`}
+              </p>
+            </>
           )}
         </form>
       )}
