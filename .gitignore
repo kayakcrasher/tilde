@@ -8,3 +8,8 @@ artifacts
 .env
 .env.*
 .node_modules.lock
+dist-web
+android/app/build
+android/build
+android/.gradle
+android/local.properties

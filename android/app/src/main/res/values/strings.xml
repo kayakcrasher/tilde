@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Tilde</string>
+    <string name="title_activity_main">Tilde</string>
+    <string name="package_name">com.kayakcrasher.tilde</string>
+    <string name="custom_url_scheme">com.kayakcrasher.tilde</string>
+</resources>
