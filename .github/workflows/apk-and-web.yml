@@ -55,7 +55,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
       - run: npm ci --no-audit --no-fund
       - run: npm run android:sync
       - name: Assemble debug APK
