@@ -8,3 +8,16 @@
 @import "@fontsource/syne/latin-700.css";
 @import "../src/styles.css";
 @source "../src";
+
+/* Syne's ß is a stylised glyph that reads like ʒ; borrow Manrope's ß only. */
+@font-face {
+  font-family: "Tilde Eszett";
+  font-weight: 400 800;
+  font-display: swap;
+  src: url("@fontsource/manrope/files/manrope-latin-600-normal.woff2") format("woff2");
+  unicode-range: U+00DF, U+1E9E;
+}
+
+:root {
+  --font-display: "Tilde Eszett", "Syne", ui-sans-serif, system-ui, sans-serif;
+}

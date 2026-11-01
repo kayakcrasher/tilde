@@ -117,7 +117,8 @@ export function choicesFor(item: Item): string[] {
       if (fold(form) !== fold(answer)) extra.push(form);
     }
   }
-  const unique = [...new Set([...pool, ...extra])];
+  const tailored = (pack().distractors?.(item, answer) ?? []).filter((form) => fold(form) !== fold(answer));
+  const unique = [...new Set([...tailored, ...pool, ...extra])];
   const picked = unique.slice(0, 3);
   return shuffle([answer, ...picked], item.id);
 }

@@ -49,11 +49,18 @@ export function Tilde() {
   const [ready, setReady] = useState(false);
   const current = pack();
 
-  // Load this language's own saved progress whenever the language changes.
+  // Load the saved language's progress once on start.
   useEffect(() => {
-    switchLanguage(lang);
+    switchLanguage(useLang.getState().code);
     setReady(true);
-  }, [lang]);
+  }, []);
+
+  // Activate the new language *before* re-rendering, so no screen ever reads
+  // one language's sentences against another language's tables.
+  const changeLang = (code: LangCode) => {
+    switchLanguage(code);
+    setLang(code);
+  };
 
   if (!ready) return <div className="min-h-screen bg-bg" />;
 
@@ -71,7 +78,7 @@ export function Tilde() {
               <ChevronDown className="size-3 text-muted" aria-hidden="true" />
               <select
                 value={lang}
-                onChange={(event) => setLang(event.target.value as LangCode)}
+                onChange={(event) => changeLang(event.target.value as LangCode)}
                 aria-label="Language"
                 className="absolute inset-0 cursor-pointer opacity-0"
               >
@@ -430,7 +437,7 @@ function Play({
                 type="button"
                 onPointerDown={(event) => event.preventDefault()}
                 onClick={() => insert(char)}
-                className="tap h-10 min-w-10 flex-1 rounded-xl border border-line bg-surface/60 font-display text-lg text-fg hover:border-muted"
+                className="tap h-10 min-w-10 flex-1 rounded-xl border border-line bg-surface/60 font-sans text-lg font-semibold text-fg hover:border-muted"
                 aria-label={`Insert ${char}`}
               >
                 {char}

@@ -59,7 +59,7 @@ export function AccentKeys({
           type="button"
           onPointerDown={(event) => event.preventDefault()}
           onClick={() => insertAtCursor(inputRef.current, value, char, onChange)}
-          className="tap h-10 min-w-10 flex-1 rounded-xl border border-line bg-surface/60 font-display text-lg text-fg hover:border-muted"
+          className="tap h-10 min-w-10 flex-1 rounded-xl border border-line bg-surface/60 font-sans text-lg font-semibold text-fg hover:border-muted"
           aria-label={`Insert ${char}`}
         >
           {char}

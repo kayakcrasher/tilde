@@ -76,6 +76,8 @@ export type Pack = {
   isIrregular: (verb: string, tense: Tense, person: number) => boolean;
   /** Split a form into [unchanged part, highlighted ending] for the endings table. */
   split: (verb: string, tense: Tense, form: string) => [string, string];
+  /** Optional wrong answers tailored to an item (e.g. plausible wrong participles). */
+  distractors?: (item: Item, answer: string) => string[];
   /** How a form reads in a conjugation table, e.g. "hat gegessen" or "glanann tú". */
   display: (verb: string, tense: Tense, person: number, form: string) => string;
 };
