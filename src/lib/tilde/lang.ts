@@ -1,10 +1,11 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { german } from "./packs/de";
+import { irish } from "./packs/ga";
 import { spanish } from "./packs/es";
 import type { Pack } from "./types";
 
-export const PACKS: Pack[] = [spanish, german];
+export const PACKS: Pack[] = [spanish, german, irish];
 
 export type LangCode = Pack["code"];
 

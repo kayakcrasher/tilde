@@ -134,7 +134,7 @@ export const german: Pack = {
     const stem = stemOf(item.verb);
     const ge = /^(be|ver|er|ent|emp|zer|ge|miss)/.test(item.verb.slice(particle.length)) ? "" : "ge";
     const past = FORMS[item.verb]?.["Präteritum"]?.[2] ?? "";
-    const strongPast = past && !past.endsWith("te") ? past : "";
+    const strongPast = past && !past.endsWith("e") ? past : "";
     const wrong = [
       `${particle}${ge}${stem}t`, // weak pattern on a strong verb: geschlaft
       `${particle}${ge}${stem}en`, // strong pattern on a weak verb: gemachen

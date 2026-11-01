@@ -327,7 +327,7 @@ function Play({
           {showVerb ? (
             <>
               <Chip tone="accent">{item.verb}</Chip>
-              <Chip>{item.tense}</Chip>
+              <Chip>{pack().tenseTitle(item.tense)}</Chip>
               {showPerson ? <Chip>{pack().persons[item.person]}</Chip> : null}
             </>
           ) : (
