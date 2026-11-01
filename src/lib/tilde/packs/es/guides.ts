@@ -1,5 +1,4 @@
 import type { Guide, Row, Tense } from "../../types";
-import { FORMS } from "./forms";
 
 type SpanishGuide = Omit<Guide, "columns" | "tableNote"> & {
   endings: { ar: Row; er: Row; ir: Row };

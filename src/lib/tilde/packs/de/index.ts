@@ -1,6 +1,7 @@
 import type { Guide, Pack, Tense } from "../../types";
 import { FORMS } from "./forms";
 import { ITEMS } from "./items";
+import { STORIES } from "./stories";
 import { AUX, IRREGULAR, SEPARABLE } from "./meta";
 
 const TENSES = ["Präsens", "Präteritum", "Perfekt", "Futur", "Konjunktiv II"] as const;
@@ -123,6 +124,7 @@ export const german: Pack = {
   },
   forms: FORMS,
   items: ITEMS,
+  stories: STORIES,
   guides: GUIDES,
   accentKeys: ["ä", "ö", "ü", "ß"],
   markWord: "umlaut",

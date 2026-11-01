@@ -127,6 +127,18 @@
   }
 }
 
+.toast-in {
+  animation: tilde-toast 320ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+@keyframes tilde-toast {
+  from {
+    opacity: 0;
+    translate: 0 24px;
+    scale: 0.96;
+  }
+}
+
 .safe-area {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
@@ -160,7 +172,8 @@
   .rise,
   .pop,
   .gap-slot,
-  .mic-ring {
+  .mic-ring,
+  .toast-in {
     animation: none;
   }
 }

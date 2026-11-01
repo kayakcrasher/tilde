@@ -1,6 +1,7 @@
 import type { Guide, Pack, Tense } from "../../types";
 import { FORMS } from "./forms";
 import { ITEMS } from "./items";
+import { STORIES } from "./stories";
 import { IRREGULAR_VERBS, SPLIT_STEMS } from "./meta";
 
 const TENSES = ["láithreach", "caite", "gnáthchaite", "fáistineach", "coinníollach"] as const;
@@ -122,6 +123,7 @@ export const irish: Pack = {
   },
   forms: FORMS,
   items: ITEMS,
+  stories: STORIES,
   guides: GUIDES,
   accentKeys: ["á", "é", "í", "ó", "ú", "'"],
   markWord: "fada",

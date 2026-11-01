@@ -6,8 +6,10 @@ import {
   ChevronDown,
   Flame,
   Globe,
+  FlaskConical,
   Keyboard,
   LayoutGrid,
+  Library,
   Lightbulb,
   Mic,
   Play as PlayIcon,
@@ -32,7 +34,10 @@ import {
 import { PACKS, pack, useLang, type LangCode } from "@/lib/tilde/lang";
 import { switchLanguage, usePlay } from "@/lib/tilde/store";
 import { DIFFICULTIES, type Difficulty, type Item, type Tense } from "@/lib/tilde/types";
+import { BadgeGrid, BadgeToast, useBadgeWatcher } from "./badges";
 import { Learn } from "./learn";
+import { PLACEMENT_BLURB, PlacementTest } from "./placement";
+import { Stories } from "./stories";
 import { Chip, buzz } from "./shared";
 import { Speak } from "./speak";
 
@@ -74,6 +79,24 @@ export function Tilde() {
   const changeLang = (code: LangCode) => {
     switchLanguage(code);
     setLang(code);
+  };
+
+  useBadgeWatcher();
+  const placement = usePlay((state) => state.placement);
+  const [skipPlacement, setSkipPlacement] = useState(() => {
+    try {
+      return localStorage.getItem("tilde-skip-placement") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const dismissPlacement = () => {
+    setSkipPlacement(true);
+    try {
+      localStorage.setItem("tilde-skip-placement", "1");
+    } catch {
+      /* storage unavailable */
+    }
   };
 
   if (!ready) return <div className="min-h-screen bg-bg" />;
@@ -125,12 +148,15 @@ export function Tilde() {
           <div className="xp-fill h-full rounded-full" style={{ width: `${xpWidth}%` }} />
         </div>
 
-        <nav className={`mt-5 grid ${current.speechLang ? "grid-cols-4" : "grid-cols-3"} gap-1 rounded-full border border-line bg-surface p-1`} aria-label="Sections">
+        <nav className={`mt-5 grid ${current.speechLang ? "grid-cols-5" : "grid-cols-4"} gap-1 rounded-full border border-line bg-surface p-1`} aria-label="Sections">
           <Segment on={view === "play"} onClick={() => setView("play")}>
             <PlayIcon className="size-3.5" aria-hidden="true" /> Play
           </Segment>
           <Segment on={view === "learn"} onClick={() => setView("learn")}>
             <BookOpen className="size-3.5" aria-hidden="true" /> Learn
+          </Segment>
+          <Segment on={view === "stories"} onClick={() => setView("stories")}>
+            <Library className="size-3.5" aria-hidden="true" /> Stories
           </Segment>
           {current.speechLang ? (
             <Segment on={view === "speak"} onClick={() => setView("speak")}>
@@ -172,8 +198,33 @@ export function Tilde() {
           </section>
         ) : null}
 
+        {view === "play" && stats.seen === 0 && !placement && !skipPlacement ? (
+          <div className="rise mt-4 flex items-center gap-3 rounded-2xl border border-accent/40 bg-accent/10 p-3">
+            <FlaskConical className="size-5 shrink-0 text-accent" aria-hidden="true" />
+            <p className="min-w-0 flex-1 text-sm">
+              New to {current.name}? Take a 2-minute placement test to find your level.
+            </p>
+            <div className="flex shrink-0 flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => setView("placement")}
+                className="tap rounded-full bg-accent px-3 py-1.5 text-xs font-semibold text-ink"
+              >
+                Take test
+              </button>
+              <button type="button" onClick={dismissPlacement} className="tap text-xs text-muted underline">
+                No thanks
+              </button>
+            </div>
+          </div>
+        ) : null}
+
         <main className="pt-5 pb-16">
-          {view === "learn" ? (
+          {view === "placement" ? (
+            <PlacementTest key={lang} />
+          ) : view === "stories" ? (
+            <Stories key={lang} />
+          ) : view === "learn" ? (
             <Learn key={lang} />
           ) : view === "speak" && current.speechLang ? (
             <Speak key={lang} />
@@ -184,6 +235,7 @@ export function Tilde() {
           )}
         </main>
       </div>
+      <BadgeToast />
     </div>
   );
 }
@@ -605,6 +657,10 @@ function Progress({
         </p>
       ) : null}
 
+      <PlacementCard />
+
+      <BadgeGrid />
+
       <h2 className="mt-7 px-1 text-xs font-semibold tracking-widest text-muted uppercase">By tense</h2>
       <ul className="card mt-2 divide-y divide-line rounded-3xl border border-line px-4">
         {pack().tenses.map((tense) => {
@@ -681,6 +737,43 @@ function Progress({
           )}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function PlacementCard() {
+  const placement = usePlay((state) => state.placement);
+  const setView = usePlay((state) => state.setView);
+  return (
+    <div className="card mt-3 flex items-center gap-3 rounded-2xl border border-line p-4">
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent/15 text-accent" aria-hidden="true">
+        <FlaskConical className="size-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        {placement ? (
+          <>
+            <p className="text-sm font-semibold">
+              Placement: {placement.label}{" "}
+              <span className="font-normal text-muted tabular-nums">
+                ({placement.right}/{placement.total})
+              </span>
+            </p>
+            <p className="text-xs text-muted">{PLACEMENT_BLURB[placement.label]}</p>
+          </>
+        ) : (
+          <>
+            <p className="text-sm font-semibold">Placement test</p>
+            <p className="text-xs text-muted">Optional · 15 questions · finds your level</p>
+          </>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => setView("placement")}
+        className="tap shrink-0 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold"
+      >
+        {placement ? "Retake" : "Start"}
+      </button>
     </div>
   );
 }

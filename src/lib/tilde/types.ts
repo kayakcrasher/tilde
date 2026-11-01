@@ -51,6 +51,25 @@ export type Guide = {
 
 export type Forms = Record<string, Partial<Record<Tense, Row>>>;
 
+export type StoryQuestion = {
+  /** Asked in English so it tests understanding, not grammar. */
+  q: string;
+  options: [string, string, string, string];
+  /** Index of the correct option. */
+  answer: 0 | 1 | 2 | 3;
+};
+
+export type Story = {
+  id: string;
+  title: string;
+  level: Difficulty;
+  /** The story in the target language. */
+  text: string;
+  /** English translation. */
+  en: string;
+  questions: StoryQuestion[];
+};
+
 export type Pack = {
   code: "es" | "de" | "ga";
   /** English name of the language. */
@@ -65,6 +84,7 @@ export type Pack = {
   levels: Record<Difficulty, { native: string; help: string }>;
   forms: Forms;
   items: Item[];
+  stories: Story[];
   guides: Record<Tense, Guide>;
   accentKeys: readonly string[];
   /** What a missing diacritic is called: accent, umlaut, fada. */
