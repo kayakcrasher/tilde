@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Ear, Mic, RefreshCw, Snail, Square, Volume2 } from "lucide-react";
-import { answerOf, atSentenceStart, capitalize, difficultyFor, sentence } from "@/lib/tilde/engine";
-import { ITEMS } from "@/lib/tilde/items";
+import { answerOf, atSentenceStart, capitalize, difficultyFor, parts, sentence } from "@/lib/tilde/engine";
+import { pack } from "@/lib/tilde/lang";
 import { canListen, canSpeak, listen, scoreSpeech, speak, type Listening, type SpeechScore } from "@/lib/tilde/speech";
 import { usePlay } from "@/lib/tilde/store";
 import type { Difficulty, Item } from "@/lib/tilde/types";
@@ -9,7 +9,7 @@ import { Chip, buzz } from "./shared";
 
 /** Sentences that make sense to read aloud (digits are read inconsistently by recognisers). */
 function poolFor(difficulty: Difficulty): Item[] {
-  return ITEMS.filter((item) => difficultyFor(item) === difficulty && !/\d/.test(sentence(item, answerOf(item))));
+  return pack().items.filter((item) => difficultyFor(item) === difficulty && !/\d/.test(sentence(item, answerOf(item))));
 }
 
 function pickFrom(pool: Item[], avoid?: string): Item {
@@ -111,11 +111,11 @@ export function Speak() {
       <article className="card rounded-3xl border border-line p-5 sm:p-7">
         <div className="flex flex-wrap items-center gap-1.5">
           <Chip tone="accent">{item.verb}</Chip>
-          <Chip>{item.tense}</Chip>
-          <span className="ml-auto text-xs text-muted">Say it in Spanish</span>
+          <Chip>{pack().tenseTitle(item.tense)}</Chip>
+          <span className="ml-auto text-xs text-muted">Say it in {pack().name}</span>
         </div>
 
-        <h1 className="mt-5 font-display text-[1.75rem] leading-[1.3] font-semibold sm:text-4xl" lang="es">
+        <h1 className="mt-5 font-display text-[1.75rem] leading-[1.3] font-semibold sm:text-4xl" lang={pack().code}>
           {score ? (
             score.words.map((word, index) => (
               <span key={index} className={word.ok ? "text-good" : "text-bad underline decoration-2 underline-offset-4"}>
@@ -247,8 +247,7 @@ export function Speak() {
 }
 
 function Highlighted({ item, verb }: { item: Item; verb: string }) {
-  const left = !item.before ? "" : /[¿¡]$/.test(item.before) ? item.before : `${item.before} `;
-  const tail = !item.after ? "" : /^[,.?;!]/.test(item.after) ? item.after : ` ${item.after}`;
+  const { left, tail } = parts(item);
   return (
     <>
       {left}

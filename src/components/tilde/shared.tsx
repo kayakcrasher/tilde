@@ -1,6 +1,5 @@
 import type { ReactNode, RefObject } from "react";
-
-export const ACCENT_KEYS = ["á", "é", "í", "ó", "ú", "ü", "ñ"] as const;
+import { pack } from "@/lib/tilde/lang";
 
 /** Short haptic tick on devices that support it (Android); silently ignored elsewhere. */
 export function buzz(pattern: number | number[]) {
@@ -54,7 +53,7 @@ export function AccentKeys({
 }) {
   return (
     <div className="mt-2.5 flex flex-wrap gap-1.5" role="group" aria-label="Insert accented letter">
-      {ACCENT_KEYS.map((char) => (
+      {pack().accentKeys.map((char) => (
         <button
           key={char}
           type="button"

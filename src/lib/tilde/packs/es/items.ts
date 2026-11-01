@@ -1,4 +1,4 @@
-import type { Item } from "./types";
+import type { Item } from "../../types";
 
 export const ITEMS: Item[] = [
   { id: "hablar-pr-0", verb: "hablar", tense: "presente", person: 0, before: "En casa yo", after: "bajito para no despertar al bebé.", en: "At home I speak quietly so I don't wake the baby.", band: 1 },

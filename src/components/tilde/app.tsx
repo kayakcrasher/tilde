@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BarChart3, BookOpen, Check, Flame, Lightbulb, Mic, Play as PlayIcon, RotateCcw, X } from "lucide-react";
+import { BarChart3, BookOpen, Check, ChevronDown, Flame, Globe, Lightbulb, Mic, Play as PlayIcon, RotateCcw, X } from "lucide-react";
 import {
   CHOICE_POINTS,
   TYPE_POINTS,
@@ -12,30 +12,20 @@ import {
   gradeTyped,
   itemById,
   levelSpan,
+  parts,
   sentence,
 } from "@/lib/tilde/engine";
-import { usePlay } from "@/lib/tilde/store";
-import { DIFFICULTIES, PERSONS, TENSES, type Difficulty, type Item, type Tense } from "@/lib/tilde/types";
+import { PACKS, pack, useLang, type LangCode } from "@/lib/tilde/lang";
+import { switchLanguage, usePlay } from "@/lib/tilde/store";
+import { DIFFICULTIES, type Difficulty, type Item, type Tense } from "@/lib/tilde/types";
 import { Learn } from "./learn";
-import { ACCENT_KEYS, Chip, buzz } from "./shared";
+import { Chip, buzz } from "./shared";
 import { Speak } from "./speak";
-
-const DIFFICULTY_LABEL: Record<Difficulty, string> = {
-  facil: "Fácil",
-  medio: "Medio",
-  dificil: "Difícil",
-};
 
 const DIFFICULTY_EN: Record<Difficulty, string> = {
   facil: "Easy",
   medio: "Medium",
   dificil: "Hard",
-};
-
-const DIFFICULTY_HELP: Record<Difficulty, string> = {
-  facil: "Present tense, with the verb, tense and person shown.",
-  medio: "Preterite and imperfect. You get the verb and the tense.",
-  dificil: "Future, conditional and subjunctive. No hints — go by the English.",
 };
 
 export function Tilde() {
@@ -54,12 +44,18 @@ export function Tilde() {
   const span = levelSpan(stats.xp);
   const xpWidth = Math.min(100, Math.round((span.into / span.need) * 100));
 
+  const lang = useLang((state) => state.code);
+  const setLang = useLang((state) => state.setCode);
+  const [ready, setReady] = useState(false);
+  const current = pack();
+
+  // Load this language's own saved progress whenever the language changes.
   useEffect(() => {
-    void Promise.resolve(usePlay.persist.rehydrate()).then(() => {
-      const state = usePlay.getState();
-      if (!itemById(state.cardId)) state.draw();
-    });
-  }, []);
+    switchLanguage(lang);
+    setReady(true);
+  }, [lang]);
+
+  if (!ready) return <div className="min-h-screen bg-bg" />;
 
   return (
     <div className="safe-area relative min-h-screen overflow-x-hidden bg-bg text-fg">
@@ -69,6 +65,23 @@ export function Tilde() {
           <Logo />
           <p className="font-display text-[1.7rem] leading-none font-bold tracking-tight">Tilde</p>
           <div className="ml-auto flex items-center gap-2">
+            <label className="tap relative flex h-8 items-center gap-1 rounded-full border border-line bg-surface pr-2 pl-2.5 text-sm font-semibold">
+              <Globe className="size-3.5 text-accent" aria-hidden="true" />
+              <span className="uppercase">{current.code}</span>
+              <ChevronDown className="size-3 text-muted" aria-hidden="true" />
+              <select
+                value={lang}
+                onChange={(event) => setLang(event.target.value as LangCode)}
+                aria-label="Language"
+                className="absolute inset-0 cursor-pointer opacity-0"
+              >
+                {PACKS.map((p) => (
+                  <option key={p.code} value={p.code}>
+                    {p.native} · {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
             <Pill label="Streak">
               <Flame className={`size-4 ${stats.streak > 0 ? "text-accent" : "text-muted"}`} aria-hidden="true" />
               <span key={stats.streak} className={stats.streak > 0 ? "pop" : undefined}>
@@ -91,16 +104,18 @@ export function Tilde() {
           <div className="xp-fill h-full rounded-full" style={{ width: `${xpWidth}%` }} />
         </div>
 
-        <nav className="mt-5 grid grid-cols-4 gap-1 rounded-full border border-line bg-surface p-1" aria-label="Sections">
+        <nav className={`mt-5 grid ${current.speechLang ? "grid-cols-4" : "grid-cols-3"} gap-1 rounded-full border border-line bg-surface p-1`} aria-label="Sections">
           <Segment on={view === "play"} onClick={() => setView("play")}>
             <PlayIcon className="size-3.5" aria-hidden="true" /> Play
           </Segment>
           <Segment on={view === "learn"} onClick={() => setView("learn")}>
             <BookOpen className="size-3.5" aria-hidden="true" /> Learn
           </Segment>
-          <Segment on={view === "speak"} onClick={() => setView("speak")}>
-            <Mic className="size-3.5" aria-hidden="true" /> Speak
-          </Segment>
+          {current.speechLang ? (
+            <Segment on={view === "speak"} onClick={() => setView("speak")}>
+              <Mic className="size-3.5" aria-hidden="true" /> Speak
+            </Segment>
+          ) : null}
           <Segment on={view === "stats"} onClick={() => setView("stats")}>
             <BarChart3 className="size-3.5" aria-hidden="true" /> Stats
           </Segment>
@@ -126,21 +141,21 @@ export function Tilde() {
                       {DIFFICULTY_EN[level]}
                     </span>
                     <span className="mt-0.5 block text-xs text-muted">
-                      {DIFFICULTY_LABEL[level]} · {countFor(level)}
+                      {current.levels[level].native} · {countFor(level)}
                     </span>
                   </button>
                 );
               })}
             </div>
-            <p className="mt-2 px-1 text-xs text-muted">{DIFFICULTY_HELP[difficulty]}</p>
+            <p className="mt-2 px-1 text-xs text-muted">{current.levels[difficulty].help}</p>
           </section>
         ) : null}
 
         <main className="pt-5 pb-16">
           {view === "learn" ? (
-            <Learn />
-          ) : view === "speak" ? (
-            <Speak />
+            <Learn key={lang} />
+          ) : view === "speak" && current.speechLang ? (
+            <Speak key={lang} />
           ) : view === "stats" || !item ? (
             <Progress stats={stats} span={span} onPractice={draw} onReset={reset} />
           ) : (
@@ -233,8 +248,7 @@ function Play({
   const difficulty = difficultyFor(item);
   const typePoints = TYPE_POINTS[difficulty];
   const choicePoints = CHOICE_POINTS[difficulty];
-  const left = !item.before ? "" : /[¿¡]$/.test(item.before) ? item.before : `${item.before} `;
-  const tail = !item.after ? "" : /^[,.?;!]/.test(item.after) ? item.after : ` ${item.after}`;
+  const { left, tail } = parts(item);
   const showVerb = difficulty !== "dificil" || result !== null;
   const showPerson = difficulty === "facil" || result !== null;
 
@@ -307,7 +321,7 @@ function Play({
             <>
               <Chip tone="accent">{item.verb}</Chip>
               <Chip>{item.tense}</Chip>
-              {showPerson ? <Chip>{PERSONS[item.person]}</Chip> : null}
+              {showPerson ? <Chip>{pack().persons[item.person]}</Chip> : null}
             </>
           ) : (
             <Chip>
@@ -353,7 +367,7 @@ function Play({
             <p className="mt-0.5 text-sm text-muted">
               {result.ok
                 ? result.via === "type" && !result.accent
-                  ? `Right verb — watch the accent: ${answer}.`
+                  ? `Right verb — watch the ${pack().markWord}: ${answer}.`
                   : result.via === "type"
                     ? "Typed it perfectly."
                     : "Picked the right form."
@@ -410,7 +424,7 @@ function Play({
             </span>
           </div>
           <div className="mt-2.5 flex flex-wrap gap-1.5" role="group" aria-label="Insert accented letter">
-            {ACCENT_KEYS.map((char) => (
+            {pack().accentKeys.map((char) => (
               <button
                 key={char}
                 type="button"
@@ -459,7 +473,7 @@ function Play({
             </ul>
           ) : (
             <p className="mt-3 text-center text-xs text-muted">
-              Typing scores {typePoints}. Choices score {choicePoints}. Accents earn a bonus.
+              Typing scores {typePoints}. Choices score {choicePoints}. Getting every {pack().markWord} right earns a bonus.
             </p>
           )}
         </form>
@@ -538,13 +552,13 @@ function Progress({
 
       <h2 className="mt-7 px-1 text-xs font-semibold tracking-widest text-muted uppercase">By tense</h2>
       <ul className="card mt-2 divide-y divide-line rounded-3xl border border-line px-4">
-        {TENSES.map((tense) => {
+        {pack().tenses.map((tense) => {
           const row = stats.byTense[tense];
           const rowRate = !row || row.seen === 0 ? 0 : Math.round((row.correct / row.seen) * 100);
           return (
             <li key={tense} className="flex items-center gap-3 py-3">
               <div className="w-28">
-                <p className="text-sm font-semibold capitalize">{tense}</p>
+                <p className="text-sm font-semibold">{pack().tenseTitle(tense)}</p>
                 <p className="text-xs text-muted">{tenseHome(tense)}</p>
               </div>
               <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-line">
@@ -617,9 +631,9 @@ function Progress({
 }
 
 function tenseHome(tense: Tense): string {
-  if (tense === "presente") return "Fácil";
-  if (tense === "pretérito" || tense === "imperfecto") return "Medio";
-  return "Difícil";
+  const band = pack().items.find((item) => item.tense === tense)?.band ?? 1;
+  const level: Difficulty = band <= 2 ? "facil" : band <= 4 ? "medio" : "dificil";
+  return pack().levels[level].native;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

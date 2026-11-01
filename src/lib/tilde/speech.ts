@@ -2,8 +2,9 @@
 // In the Android app these go through native Capacitor plugins (the WebView
 // has no speech recognition); in the browser they use the Web Speech API.
 import { Capacitor } from "@capacitor/core";
+import { pack } from "./lang";
 
-const LANG = "es-ES";
+const lang = () => pack().speechLang ?? "es-ES";
 
 const native = () => Capacitor.isNativePlatform();
 
@@ -45,8 +46,8 @@ export function canSpeak(): boolean {
 function pickVoice(): SpeechSynthesisVoice | undefined {
   const voices = window.speechSynthesis.getVoices();
   return (
-    voices.find((v) => v.lang === LANG) ??
-    voices.find((v) => v.lang.startsWith("es")) ??
+    voices.find((v) => v.lang === lang()) ??
+    voices.find((v) => v.lang.startsWith(lang().slice(0, 2))) ??
     undefined
   );
 }
@@ -56,14 +57,14 @@ export async function speak(text: string, slow = false): Promise<void> {
   if (native()) {
     const { TextToSpeech } = await import("@capacitor-community/text-to-speech");
     await TextToSpeech.stop().catch(() => {});
-    await TextToSpeech.speak({ text, lang: LANG, rate, category: "playback" });
+    await TextToSpeech.speak({ text, lang: lang(), rate, category: "playback" });
     return;
   }
   const synth = window.speechSynthesis;
   synth.cancel();
   await new Promise<void>((resolve) => {
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = LANG;
+    utterance.lang = lang();
     utterance.rate = rate;
     const voice = pickVoice();
     if (voice) utterance.voice = voice;
@@ -90,7 +91,7 @@ export function listen(onPartial?: (text: string) => void): Listening {
   const Ctor = webRecognitionCtor();
   if (!Ctor) return { result: Promise.reject(new Error("unsupported")), stop: () => {} };
   const rec = new Ctor();
-  rec.lang = LANG;
+  rec.lang = lang();
   rec.interimResults = true;
   rec.maxAlternatives = 5;
   rec.continuous = false;
@@ -125,7 +126,7 @@ function listenNative(): Listening {
     const perm = await SpeechRecognition.requestPermissions();
     if (perm.speechRecognition !== "granted") throw new Error("not-allowed");
     const res = await SpeechRecognition.start({
-      language: LANG,
+      language: lang(),
       maxResults: 5,
       partialResults: false,
       popup: false,

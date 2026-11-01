@@ -1,6 +1,5 @@
-import { FORMS } from "./forms";
-import { ITEMS } from "./items";
-import { TENSES, type Difficulty, type Item, type Stats, type Tense, type TenseStat } from "./types";
+import { pack } from "./lang";
+import type { Difficulty, Item, Row, Stats, Tense, TenseStat } from "./types";
 
 export const TYPE_POINTS: Record<Difficulty, number> = { facil: 10, medio: 14, dificil: 20 };
 export const CHOICE_POINTS: Record<Difficulty, number> = { facil: 4, medio: 6, dificil: 8 };
@@ -10,7 +9,7 @@ const emptyTense = (): TenseStat => ({ seen: 0, correct: 0 });
 
 export function emptyStats(): Stats {
   const byTense = {} as Record<Tense, TenseStat>;
-  for (const tense of TENSES) byTense[tense] = emptyTense();
+  for (const tense of pack().tenses) byTense[tense] = emptyTense();
   return {
     xp: 0,
     streak: 0,
@@ -24,25 +23,44 @@ export function emptyStats(): Stats {
   };
 }
 
+export function rowOf(verb: string, tense: Tense): Row | undefined {
+  return pack().forms[verb]?.[tense];
+}
+
 export function answerOf(item: Item): string {
-  const row = FORMS[item.verb]?.[item.tense];
+  if (item.answer) return item.answer;
+  const row = rowOf(item.verb, item.tense);
   if (!row) throw new Error(`Missing form ${item.verb} ${item.tense}`);
   return row[item.person];
 }
 
-for (const item of ITEMS) answerOf(item);
+/** Every verb that has a table for this tense, alphabetically. */
+export function verbsFor(tense: Tense): string[] {
+  const forms = pack().forms;
+  return Object.keys(forms)
+    .filter((verb) => forms[verb]?.[tense])
+    .sort((a, b) => a.localeCompare(b, pack().code));
+}
+
+/** Normalize apostrophes so d’ól and d'ól compare equal. */
+function cleanQuotes(value: string): string {
+  return value.replace(/[’‘`´]/g, "'");
+}
 
 export function fold(value: string): string {
-  return value
+  return cleanQuotes(value)
     .trim()
     .toLowerCase()
+    .replace(/ß/g, "ss")
+    .replace(/['\s]+/g, "")
     .normalize("NFD")
     .replace(/\p{M}/gu, "");
 }
 
 export function gradeTyped(input: string, answer: string): { ok: boolean; accent: boolean } {
   if (!fold(input) || fold(input) !== fold(answer)) return { ok: false, accent: false };
-  return { ok: true, accent: input.trim().toLowerCase() === answer.toLowerCase() };
+  const exact = (v: string) => cleanQuotes(v).trim().toLowerCase().replace(/\s+/g, " ");
+  return { ok: true, accent: exact(input) === exact(answer) };
 }
 
 export function difficultyFor(item: Item): Difficulty {
@@ -85,16 +103,16 @@ export function bandFor(xp: number): Item["band"] {
 }
 
 export function itemById(id: string): Item | undefined {
-  return ITEMS.find((item) => item.id === id);
+  return pack().items.find((item) => item.id === id);
 }
 
 export function choicesFor(item: Item): string[] {
   const answer = answerOf(item);
-  const same = FORMS[item.verb]?.[item.tense] ?? [];
+  const same = rowOf(item.verb, item.tense) ?? [];
   const pool = [...same].filter((form) => fold(form) !== fold(answer));
   const extra: string[] = [];
-  const table = FORMS[item.verb] ?? {};
-  for (const tense of TENSES) {
+  const table = pack().forms[item.verb] ?? {};
+  for (const tense of pack().tenses) {
     for (const form of table[tense] ?? []) {
       if (fold(form) !== fold(answer)) extra.push(form);
     }
@@ -119,35 +137,48 @@ function shuffle(values: string[], seed: string): string[] {
 }
 
 export function nextItem(stats: Stats, avoid: string[], difficulty: Difficulty): Item {
-  const open = ITEMS.filter((item) => difficultyFor(item) === difficulty && !avoid.includes(item.id));
-  const pool = open.length > 0 ? open : ITEMS.filter((item) => difficultyFor(item) === difficulty);
+  const items = pack().items;
+  const open = items.filter((item) => difficultyFor(item) === difficulty && !avoid.includes(item.id));
+  const pool = open.length > 0 ? open : items.filter((item) => difficultyFor(item) === difficulty);
   const bag: Item[] = [];
   for (const item of pool) {
     const weight = stats.misses.includes(item.id) ? 4 : 1;
     for (let i = 0; i < weight; i += 1) bag.push(item);
   }
   const index = Math.floor(Math.random() * bag.length);
-  return bag[index] ?? ITEMS[0];
+  return bag[index] ?? items[0];
 }
 
 export function countFor(difficulty: Difficulty): number {
-  return ITEMS.filter((item) => difficultyFor(item) === difficulty).length;
+  return pack().items.filter((item) => difficultyFor(item) === difficulty).length;
 }
 
 /** True when the missing verb opens the sentence (or a ¿…? / ¡…! clause). */
 export function atSentenceStart(item: Item): boolean {
-  return !item.before || /[¿¡]$/.test(item.before);
+  return !item.before || pack().openers.test(item.before);
 }
 
 export function capitalize(word: string): string {
+  // Irish d' forms capitalize after the apostrophe's letter: d'ól → D'ól.
   return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+function joinParts(item: Item, gap: string): string {
+  const left = !item.before ? "" : pack().openers.test(item.before) ? item.before : `${item.before} `;
+  const tail = !item.after ? "" : /^[,.?;!:]/.test(item.after) ? item.after : ` ${item.after}`;
+  return `${left}${gap}${tail}`.trim();
+}
+
+/** The sentence pieces around the gap, spaced correctly for display. */
+export function parts(item: Item): { left: string; tail: string } {
+  const left = !item.before ? "" : pack().openers.test(item.before) ? item.before : `${item.before} `;
+  const tail = !item.after ? "" : /^[,.?;!:]/.test(item.after) ? item.after : ` ${item.after}`;
+  return { left, tail };
 }
 
 export function sentence(item: Item, filled?: string): string {
   const gap = filled === undefined ? "___" : atSentenceStart(item) ? capitalize(filled) : filled;
-  const left = !item.before ? "" : /[¿¡]$/.test(item.before) ? item.before : `${item.before} `;
-  const tail = !item.after ? "" : /^[,.?;!]/.test(item.after) ? item.after : ` ${item.after}`;
-  return `${left}${gap}${tail}`.trim();
+  return joinParts(item, gap);
 }
 
 export function applyAnswer(

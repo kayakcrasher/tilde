@@ -1,31 +1,31 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, BookOpen, Check, ChevronDown, Shuffle, Sparkles, Volume2, X } from "lucide-react";
-import { gradeTyped } from "@/lib/tilde/engine";
-import { EXAMPLES, GUIDES, regularForm, rowOf, splitForm, verbsFor, type Conjugation } from "@/lib/tilde/grammar";
+import { gradeTyped, rowOf, verbsFor } from "@/lib/tilde/engine";
+import { pack } from "@/lib/tilde/lang";
 import { canSpeak, speak } from "@/lib/tilde/speech";
-import { PERSONS, TENSES, type Tense } from "@/lib/tilde/types";
+import type { Tense } from "@/lib/tilde/types";
 import { AccentKeys, Chip, buzz } from "./shared";
 
 export function Learn() {
-  const [tense, setTense] = useState<Tense>("presente");
-  const guide = GUIDES[tense];
+  const [tense, setTense] = useState<Tense>(pack().tenses[0]);
+  const guide = pack().guides[tense];
 
   return (
     <div className="rise space-y-4">
       <div className="-mx-4 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
         <div className="flex w-max gap-1.5" role="tablist" aria-label="Tense">
-          {TENSES.map((t) => (
+          {pack().tenses.map((t) => (
             <button
               key={t}
               type="button"
               role="tab"
               aria-selected={t === tense}
               onClick={() => setTense(t)}
-              className={`tap rounded-full border px-3.5 py-2 text-sm font-semibold capitalize ${
+              className={`tap rounded-full border px-3.5 py-2 text-sm font-semibold ${
                 t === tense ? "border-accent bg-accent text-ink" : "border-line bg-surface text-fg"
               }`}
             >
-              {t}
+              {pack().tenseTitle(t)}
             </button>
           ))}
         </div>
@@ -71,11 +71,11 @@ export function Learn() {
 }
 
 function EndingsTable({ tense }: { tense: Tense }) {
-  const guide = GUIDES[tense];
-  const kinds: Conjugation[] = ["ar", "er", "ir"];
+  const guide = pack().guides[tense];
+  const persons = pack().persons;
   return (
     <article className="card overflow-hidden rounded-3xl border border-line">
-      <h2 className="px-5 pt-5 text-xs font-semibold tracking-widest text-muted uppercase">Regular endings</h2>
+      <h2 className="px-5 pt-5 text-xs font-semibold tracking-widest text-muted uppercase">Patterns</h2>
       <div className="overflow-x-auto">
         <table className="mt-3 w-full min-w-[22rem] text-sm">
           <thead>
@@ -83,27 +83,35 @@ function EndingsTable({ tense }: { tense: Tense }) {
               <th className="px-5 pb-2 font-medium" scope="col">
                 <span className="sr-only">Person</span>
               </th>
-              {kinds.map((kind) => (
-                <th key={kind} className="pr-4 pb-2 font-medium" scope="col">
-                  <span className="font-semibold text-fg">-{kind}</span> · {EXAMPLES[kind]}
+              {guide.columns.map((col) => (
+                <th key={col.verb} className="pr-4 pb-2 font-medium" scope="col">
+                  <span className="font-semibold text-fg">{col.label}</span> · {col.verb}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {PERSONS.map((person, index) => (
+            {persons.map((person, index) => (
               <tr key={person} className="border-t border-line">
                 <th scope="row" className="px-5 py-2.5 text-left text-xs font-medium text-muted">
                   {person}
                 </th>
-                {kinds.map((kind) => {
-                  const verb = EXAMPLES[kind];
-                  const form = rowOf(verb, tense)?.[index] ?? regularForm(verb, tense, index);
-                  const [stem, ending] = splitForm(verb, tense, form);
+                {guide.columns.map((col) => {
+                  const form = rowOf(col.verb, tense)?.[index] ?? "";
+                  const shown = pack().display(col.verb, tense, index, form);
+                  const [stem, ending] = pack().split(col.verb, tense, form);
+                  const extra = shown.slice(form.length);
                   return (
-                    <td key={kind} className="py-2.5 pr-4 font-display text-[15px]">
-                      <span className="text-fg/70">{stem}</span>
-                      <span className="font-bold text-accent">{ending}</span>
+                    <td key={col.verb} className="py-2.5 pr-4 font-display text-[15px]">
+                      {shown.startsWith(form) ? (
+                        <>
+                          <span className="text-fg/70">{stem}</span>
+                          <span className="font-bold text-accent">{ending}</span>
+                          <span className="text-fg/70">{extra}</span>
+                        </>
+                      ) : (
+                        <span className="text-fg/90">{shown}</span>
+                      )}
                     </td>
                   );
                 })}
@@ -113,8 +121,7 @@ function EndingsTable({ tense }: { tense: Tense }) {
         </table>
       </div>
       <p className="px-5 pt-1 pb-4 text-xs text-muted">
-        {guide.onInfinitive ? "Grey = the whole infinitive. " : "Grey = the stem. "}
-        <span className="text-accent">Orange</span> = the ending you add.
+        {guide.tableNote} <span className="text-accent">Orange</span> = the part that changes.
       </p>
     </article>
   );
@@ -122,9 +129,10 @@ function EndingsTable({ tense }: { tense: Tense }) {
 
 function VerbExplorer({ tense }: { tense: Tense }) {
   const verbs = useMemo(() => verbsFor(tense), [tense]);
-  const [verb, setVerb] = useState(() => (verbs.includes("tener") ? "tener" : verbs[0]));
+  const [verb, setVerb] = useState(() => verbs.find((v) => pack().guides[tense].columns.every((c) => c.verb !== v)) ?? verbs[0]);
   const row = rowOf(verb, tense);
-  const voice = canSpeak();
+  const voice = canSpeak() && Boolean(pack().speechLang);
+  const persons = pack().persons;
 
   return (
     <article className="card rounded-3xl border border-line p-5">
@@ -153,21 +161,22 @@ function VerbExplorer({ tense }: { tense: Tense }) {
       {row ? (
         <ul className="mt-3 grid grid-cols-2 gap-2">
           {row.map((form, index) => {
-            const irregular = form !== regularForm(verb, tense, index);
+            const irregular = pack().isIrregular(verb, tense, index);
+            const shown = pack().display(verb, tense, index, form);
             return (
-              <li key={PERSONS[index]}>
+              <li key={persons[index]}>
                 <button
                   type="button"
                   disabled={!voice}
-                  onClick={() => void speak(form)}
+                  onClick={() => void speak(shown)}
                   className={`tap flex w-full items-center gap-2 rounded-2xl border px-3 py-2.5 text-left ${
                     irregular ? "border-accent/50 bg-accent/10" : "border-line bg-surface/60"
                   }`}
-                  aria-label={`${PERSONS[index]} ${form}${irregular ? ", irregular" : ""}`}
+                  aria-label={`${persons[index]} ${shown}${irregular ? ", irregular" : ""}`}
                 >
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[11px] text-muted">{PERSONS[index]}</span>
-                    <span className="block font-display text-lg font-semibold">{form}</span>
+                    <span className="block text-[11px] text-muted">{persons[index]}</span>
+                    <span className="block font-display text-lg leading-snug font-semibold">{shown}</span>
                   </span>
                   {voice ? <Volume2 className="size-3.5 shrink-0 text-muted" aria-hidden="true" /> : null}
                 </button>
@@ -229,8 +238,8 @@ function Drill({ tense }: { tense: Tense }) {
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <Chip tone="accent">{card.verb}</Chip>
-        <Chip>{tense}</Chip>
-        <Chip>{PERSONS[card.person]}</Chip>
+        <Chip>{pack().tenseTitle(tense)}</Chip>
+        <Chip>{pack().persons[card.person]}</Chip>
       </div>
       <form
         className="mt-3"
@@ -260,7 +269,7 @@ function Drill({ tense }: { tense: Tense }) {
             spellCheck={false}
             lang="es"
             enterKeyHint="done"
-            placeholder={`${PERSONS[card.person]} …`}
+            placeholder={`${pack().persons[card.person]} …`}
             className="min-w-0 flex-1 bg-transparent py-3 font-display text-xl font-semibold text-fg placeholder:text-muted/50 focus:outline-none"
           />
           {result ? (
@@ -274,7 +283,7 @@ function Drill({ tense }: { tense: Tense }) {
         {result ? (
           <p className="rise mt-2 text-sm" aria-live="polite">
             {result.ok ? (
-              <span className="text-good">{result.accent ? "Perfect." : `Right — with the accent it's ${answer}.`}</span>
+              <span className="text-good">{result.accent ? "Perfect." : `Right — with the ${pack().markWord} it's ${answer}.`}</span>
             ) : (
               <span className="text-muted">
                 It's <span className="font-semibold text-fg">{answer}</span>.

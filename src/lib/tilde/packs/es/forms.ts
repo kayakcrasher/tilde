@@ -1,4 +1,4 @@
-import type { Row, Tense } from "./types";
+import type { Row, Tense } from "../../types";
 
 export const FORMS: Record<string, Partial<Record<Tense, Row>>> = {
   hablar: {

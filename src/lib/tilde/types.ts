@@ -1,15 +1,5 @@
-export const TENSES = [
-  "presente",
-  "pretérito",
-  "imperfecto",
-  "futuro",
-  "condicional",
-  "subjuntivo",
-] as const;
-
-export type Tense = (typeof TENSES)[number];
-
-export const PERSONS = ["yo", "tú", "él/ella", "nosotros", "vosotros", "ellos"] as const;
+/** A tense key as used by a language pack (e.g. "presente", "Präteritum", "caite"). */
+export type Tense = string;
 
 export type Person = 0 | 1 | 2 | 3 | 4 | 5;
 
@@ -28,6 +18,8 @@ export type Item = {
   after: string;
   en: string;
   band: 1 | 2 | 3 | 4 | 5 | 6;
+  /** Exact form in this sentence when it differs from the table (e.g. Irish mutations). */
+  answer?: string;
 };
 
 export type TenseStat = { seen: number; correct: number };
@@ -42,4 +34,48 @@ export type Stats = {
   picked: number;
   byTense: Record<Tense, TenseStat>;
   misses: string[];
+};
+
+export type Guide = {
+  tense: Tense;
+  title: string;
+  english: string;
+  use: string;
+  build: string;
+  /** Example verbs shown side by side in the endings table. */
+  columns: { label: string; verb: string }[];
+  /** Short note under the endings table. */
+  tableNote: string;
+  watch: { label: string; detail: string }[];
+};
+
+export type Forms = Record<string, Partial<Record<Tense, Row>>>;
+
+export type Pack = {
+  code: "es" | "de" | "ga";
+  /** English name of the language. */
+  name: string;
+  /** Name in the language itself. */
+  native: string;
+  /** localStorage key for this language's progress. */
+  storageKey: string;
+  persons: readonly string[];
+  tenses: readonly Tense[];
+  tenseTitle: (tense: Tense) => string;
+  levels: Record<Difficulty, { native: string; help: string }>;
+  forms: Forms;
+  items: Item[];
+  guides: Record<Tense, Guide>;
+  accentKeys: readonly string[];
+  /** What a missing diacritic is called: accent, umlaut, fada. */
+  markWord: string;
+  /** BCP-47 language for speech; undefined = no speech features. */
+  speechLang?: string;
+  /** Letters that, at the end of `before`, mean the gap starts a sentence (e.g. ¿ ¡). */
+  openers: RegExp;
+  isIrregular: (verb: string, tense: Tense, person: number) => boolean;
+  /** Split a form into [unchanged part, highlighted ending] for the endings table. */
+  split: (verb: string, tense: Tense, form: string) => [string, string];
+  /** How a form reads in a conjugation table, e.g. "hat gegessen" or "glanann tú". */
+  display: (verb: string, tense: Tense, person: number, form: string) => string;
 };

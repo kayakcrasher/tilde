@@ -1,22 +1,15 @@
+import type { Guide, Row, Tense } from "../../types";
 import { FORMS } from "./forms";
-import { TENSES, type Row, type Tense } from "./types";
 
-/** How to form and when to use each tense — the content of the Learn section. */
-export type TenseGuide = {
-  tense: Tense;
-  title: string;
-  english: string;
-  use: string;
-  build: string;
+type SpanishGuide = Omit<Guide, "columns" | "tableNote"> & {
   endings: { ar: Row; er: Row; ir: Row };
   /** true when endings attach to the whole infinitive (futuro, condicional). */
   onInfinitive?: boolean;
-  watch: { label: string; detail: string }[];
 };
 
 const same = (row: Row) => ({ ar: row, er: row, ir: row });
 
-export const GUIDES: Record<Tense, TenseGuide> = {
+const RAW: Record<string, SpanishGuide> = {
   presente: {
     tense: "presente",
     title: "Presente",
@@ -114,7 +107,25 @@ export const GUIDES: Record<Tense, TenseGuide> = {
   },
 };
 
+export const TENSES = ["presente", "pretérito", "imperfecto", "futuro", "condicional", "subjuntivo"] as const;
+
 export const EXAMPLES = { ar: "hablar", er: "comer", ir: "vivir" } as const;
+
+export const GUIDES: Record<Tense, Guide> = Object.fromEntries(
+  Object.entries(RAW).map(([tense, raw]) => [
+    tense,
+    {
+      tense: raw.tense,
+      title: raw.title,
+      english: raw.english,
+      use: raw.use,
+      build: raw.build,
+      watch: raw.watch,
+      columns: (["ar", "er", "ir"] as const).map((kind) => ({ label: `-${kind}`, verb: EXAMPLES[kind] })),
+      tableNote: raw.onInfinitive ? "Grey = the whole infinitive." : "Grey = the stem.",
+    },
+  ]),
+);
 
 export type Conjugation = "ar" | "er" | "ir";
 
@@ -125,7 +136,7 @@ export function conjugationOf(verb: string): Conjugation {
 
 /** The form a fully regular verb would take — used to flag irregular forms. */
 export function regularForm(verb: string, tense: Tense, person: number): string {
-  const guide = GUIDES[tense];
+  const guide = RAW[tense];
   const kind = conjugationOf(verb);
   const stem = guide.onInfinitive ? verb : verb.slice(0, -2);
   return stem + guide.endings[kind][person];
@@ -133,31 +144,10 @@ export function regularForm(verb: string, tense: Tense, person: number): string 
 
 /** Split a form into the part that matches the regular stem and the rest. */
 export function splitForm(verb: string, tense: Tense, form: string): [string, string] {
-  const stem = GUIDES[tense].onInfinitive ? verb : verb.slice(0, -2);
+  const stem = RAW[tense].onInfinitive ? verb : verb.slice(0, -2);
   if (form.startsWith(stem)) return [stem, form.slice(stem.length)];
   let i = 0;
   while (i < form.length && i < stem.length && form[i] === stem[i]) i += 1;
   return [form.slice(0, i), form.slice(i)];
 }
 
-export function verbsFor(tense: Tense): string[] {
-  return Object.keys(FORMS)
-    .filter((verb) => FORMS[verb]?.[tense])
-    .sort((a, b) => a.localeCompare(b, "es"));
-}
-
-export function rowOf(verb: string, tense: Tense): Row | undefined {
-  return FORMS[verb]?.[tense];
-}
-
-export function irregularCount(verb: string): number {
-  let count = 0;
-  for (const tense of TENSES) {
-    const row = FORMS[verb]?.[tense];
-    if (!row) continue;
-    row.forEach((form, person) => {
-      if (form !== regularForm(verb, tense, person)) count += 1;
-    });
-  }
-  return count;
-}

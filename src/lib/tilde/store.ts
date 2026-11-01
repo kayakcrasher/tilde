@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { applyAnswer, difficultyFor, emptyStats, itemById, nextItem } from "./engine";
-import { ITEMS } from "./items";
+import { activate, pack } from "./lang";
 import type { Difficulty, Item, Stats } from "./types";
 
 export type View = "play" | "learn" | "speak" | "stats";
@@ -30,7 +30,7 @@ export const usePlay = create<PlayState>()(
     (set, get) => ({
       stats: emptyStats(),
       speech: emptySpeech(),
-      cardId: ITEMS[0].id,
+      cardId: pack().items[0].id,
       difficulty: "facil",
       view: "play",
       setView: (view) => set({ view }),
@@ -90,3 +90,37 @@ export const usePlay = create<PlayState>()(
     },
   ),
 );
+
+function readSaved(name: string): Partial<PlayState> {
+  try {
+    const raw = localStorage.getItem(name);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as { state?: Partial<PlayState> };
+    return parsed.state ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Make `code` the active language: point persistence at that language's own
+ * saved progress (separate per language) and load it. Saved data is read
+ * before anything is written, so switching never overwrites progress.
+ */
+export function switchLanguage(code: string): void {
+  const next = activate(code);
+  const saved = readSaved(next.storageKey);
+  usePlay.persist.setOptions({ name: next.storageKey });
+  const fresh = emptyStats();
+  const stats = saved.stats ? { ...fresh, ...saved.stats, byTense: { ...fresh.byTense, ...saved.stats.byTense } } : fresh;
+  const difficulty = saved.difficulty ?? "facil";
+  const card = saved.cardId ? itemById(saved.cardId) : undefined;
+  const { view } = usePlay.getState();
+  usePlay.setState({
+    stats,
+    speech: { ...emptySpeech(), ...saved.speech },
+    difficulty,
+    cardId: card && difficultyFor(card) === difficulty ? card.id : nextItem(stats, [], difficulty).id,
+    view: view === "speak" && !next.speechLang ? "play" : view,
+  });
+}
