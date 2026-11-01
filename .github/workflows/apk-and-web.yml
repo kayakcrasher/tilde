@@ -57,10 +57,23 @@ jobs:
           java-version: 21
       - run: npm ci --no-audit --no-fund
       - run: npm run android:sync
-      - name: Assemble debug APK
+      - name: Restore the signing key from secrets
+        env:
+          TILDE_KEYSTORE: ${{ secrets.TILDE_KEYSTORE }}
+          TILDE_KEY_PASSWORD: ${{ secrets.TILDE_KEY_PASSWORD }}
+        run: |
+          if [ -z "$TILDE_KEYSTORE" ] || [ -z "$TILDE_KEY_PASSWORD" ]; then
+            echo "::error::Add the TILDE_KEYSTORE and TILDE_KEY_PASSWORD secrets (repo Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+          echo "$TILDE_KEYSTORE" | base64 -d > android/tilde-release.p12
+      - name: Assemble signed release APK
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
-      - run: cp android/app/build/outputs/apk/debug/app-debug.apk tilde.apk
+        env:
+          TILDE_KEY_PASSWORD: ${{ secrets.TILDE_KEY_PASSWORD }}
+          TILDE_BUILD_NUMBER: ${{ github.run_number }}
+        run: ./gradlew assembleRelease --no-daemon
+      - run: cp android/app/build/outputs/apk/release/app-release.apk tilde.apk
       - uses: actions/upload-artifact@v4
         with:
           name: tilde-apk
@@ -71,6 +84,6 @@ jobs:
         with:
           tag_name: latest
           name: Tilde (latest build)
-          body: Debug-signed APK built from ${{ github.sha }}. Install on Android after allowing installs from unknown sources.
+          body: Tilde build ${{ github.run_number }} (${{ github.sha }}). Installs as an update over earlier builds signed with the Tilde key.
           prerelease: true
           files: tilde.apk

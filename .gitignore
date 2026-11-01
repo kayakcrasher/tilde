@@ -13,3 +13,7 @@ android/app/build
 android/build
 android/.gradle
 android/local.properties
+android/tilde-release.p12
+*.p12
+*.jks
+*.keystore
