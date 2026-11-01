@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, BookOpen, Check, ChevronDown, Shuffle, Sparkles, Volume2, X } from "lucide-react";
 import { gradeTyped, rowOf, verbsFor } from "@/lib/tilde/engine";
 import { pack } from "@/lib/tilde/lang";
-import { canSpeak, speak } from "@/lib/tilde/speech";
+import { hasVoice, speak } from "@/lib/tilde/speech";
 import type { Tense } from "@/lib/tilde/types";
 import { AccentKeys, Chip, buzz } from "./shared";
 
@@ -131,7 +131,7 @@ function VerbExplorer({ tense }: { tense: Tense }) {
   const verbs = useMemo(() => verbsFor(tense), [tense]);
   const [verb, setVerb] = useState(() => verbs.find((v) => pack().guides[tense].columns.every((c) => c.verb !== v)) ?? verbs[0]);
   const row = rowOf(verb, tense);
-  const voice = canSpeak() && Boolean(pack().speechLang);
+  const voice = hasVoice();
   const persons = pack().persons;
 
   return (

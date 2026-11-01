@@ -2,11 +2,12 @@ import { useMemo, useRef, useState } from "react";
 import { Brain, Check, Search, Sparkles, Volume2, X } from "lucide-react";
 import { answerOf, gradeTyped, sentence } from "@/lib/tilde/engine";
 import { pack } from "@/lib/tilde/lang";
-import { canSpeak, speak } from "@/lib/tilde/speech";
+import { hasVoice, speak } from "@/lib/tilde/speech";
 import { usePlay } from "@/lib/tilde/store";
 import type { VocabEntry } from "@/lib/tilde/types";
 import { INTERVAL_DAYS, KNOWN_BOX, exampleFor, isDue, statusOf, type Card, type WordStatus } from "@/lib/tilde/vocab";
 import { AccentKeys, Chip, buzz } from "./shared";
+import { PronLine } from "./pronline";
 
 const SESSION = 10;
 
@@ -253,7 +254,7 @@ function Session({ entries, onDone }: { entries: VocabEntry[]; onDone: () => voi
   const { entry, mode, options } = question;
   const card = vocab[entry.id];
   const example = answer ? exampleFor(entry, examples) : undefined;
-  const voice = canSpeak() && Boolean(pack().speechLang);
+  const voice = hasVoice();
 
   function respond(given: string) {
     if (answer) return;
@@ -395,6 +396,7 @@ function Session({ entries, onDone }: { entries: VocabEntry[]; onDone: () => voi
                 <span className="ml-auto rounded-full bg-good px-2 py-0.5 text-xs font-bold text-ink">+{answer.xp}</span>
               ) : null}
             </p>
+            <PronLine text={entry.word} className="mt-2" />
             {example ? (
               <p className="mt-2 text-sm">
                 <span lang={pack().code}>{example.text}</span>

@@ -2,9 +2,12 @@
 // In the Android app these go through native Capacitor plugins (the WebView
 // has no speech recognition); in the browser they use the Web Speech API.
 import { Capacitor } from "@capacitor/core";
+import { speakIrish } from "./abair";
 import { pack } from "./lang";
 
-const lang = () => pack().speechLang ?? "es-ES";
+const LANGS: Record<string, string> = { es: "es-ES", de: "de-DE", en: "en-GB" };
+let override: string | undefined;
+const lang = () => override ?? pack().speechLang ?? "es-ES";
 
 const native = () => Capacitor.isNativePlatform();
 
@@ -43,6 +46,23 @@ export function canSpeak(): boolean {
   return native() || (typeof window !== "undefined" && "speechSynthesis" in window);
 }
 
+/** Can the active language be read aloud? (Irish uses ABAIR, so it needs a connection.) */
+export function hasVoice(code: string = pack().code): boolean {
+  if (code === "ga") return typeof navigator === "undefined" || navigator.onLine !== false;
+  return canSpeak() && Boolean(LANGS[code] ?? pack().speechLang);
+}
+
+/** Read text aloud in a specific language (es, de, ga, en). */
+export async function speakIn(code: string, text: string, slow = false): Promise<void> {
+  if (code === "ga") return speakIrish(text, slow);
+  override = LANGS[code];
+  try {
+    await speak(text, slow);
+  } finally {
+    override = undefined;
+  }
+}
+
 function pickVoice(): SpeechSynthesisVoice | undefined {
   const voices = window.speechSynthesis.getVoices();
   return (
@@ -53,6 +73,7 @@ function pickVoice(): SpeechSynthesisVoice | undefined {
 }
 
 export async function speak(text: string, slow = false): Promise<void> {
+  if (!override && pack().code === "ga") return speakIrish(text, slow);
   const rate = slow ? 0.65 : 0.9;
   if (native()) {
     const { TextToSpeech } = await import("@capacitor-community/text-to-speech");

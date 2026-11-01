@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { ArrowLeft, BookOpen, Check, ChevronRight, Eye, EyeOff, Snail, Volume2, X } from "lucide-react";
 import { pack } from "@/lib/tilde/lang";
-import { canSpeak, speak } from "@/lib/tilde/speech";
+import { hasVoice, speak } from "@/lib/tilde/speech";
 import { usePlay } from "@/lib/tilde/store";
 import { DIFFICULTIES, type Story } from "@/lib/tilde/types";
 import { Chip, buzz } from "./shared";
+import { PronLine } from "./pronline";
 
 const LEVEL_EN = { facil: "Easy", medio: "Medium", dificil: "Hard" } as const;
 
@@ -74,7 +75,7 @@ function StoryView({ story, onBack }: { story: Story; onBack: () => void }) {
   const [showEn, setShowEn] = useState(false);
   const [picks, setPicks] = useState<(number | null)[]>(() => story.questions.map(() => null));
   const [checked, setChecked] = useState<null | { right: number; xp: number }>(null);
-  const voice = canSpeak() && Boolean(pack().speechLang);
+  const voice = hasVoice();
   const allPicked = picks.every((p) => p !== null);
 
   function check() {
@@ -107,9 +108,22 @@ function StoryView({ story, onBack }: { story: Story; onBack: () => void }) {
         <h1 className="mt-4 font-display text-2xl font-bold sm:text-3xl" lang={pack().code}>
           {story.title}
         </h1>
-        <p className="mt-4 text-[17px] leading-relaxed text-fg" lang={pack().code}>
-          {story.text}
-        </p>
+        {pack().code === "ga" ? (
+          <div className="mt-4 space-y-3">
+            {story.text.split(/(?<=[.!?])\s+/).map((line, i) => (
+              <div key={i}>
+                <p className="text-[17px] leading-relaxed text-fg" lang="ga">
+                  {line}
+                </p>
+                <PronLine text={line} className="mt-1" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 text-[17px] leading-relaxed text-fg" lang={pack().code}>
+            {story.text}
+          </p>
+        )}
         {showEn ? <p className="rise mt-4 border-t border-line pt-4 text-[15px] leading-relaxed text-muted">{story.en}</p> : null}
         <div className="mt-5 flex flex-wrap gap-2">
           <button

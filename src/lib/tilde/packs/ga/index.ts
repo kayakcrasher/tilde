@@ -132,8 +132,9 @@ export const irish: Pack = {
   notice: {
     title: "Irish is a work in progress",
     body:
-      "Every verb form is checked against the official grammar database (teanglann.ie) and every word against An Gramadóir's word list, but the sentences and stories haven't been reviewed by a fluent speaker yet, so some phrasing may sound unnatural. Only the standard written forms (An Caighdeán Oifigiúil) are taught — not regional dialects — and speaking practice isn't available.",
+      "Verb forms are checked against teanglann.ie, every word against An Gramadóir, and audio and pronunciation come from ABAIR (Phonetics and Speech Laboratory, Trinity College Dublin) — but the sentences and lessons haven't been reviewed by a fluent speaker yet, so some phrasing may sound unnatural. Only the standard written forms are taught, pronunciation lines follow the Connacht voice, audio needs an internet connection, and there's no speaking practice yet.",
   },
+
   speechLang: undefined,
   openers: /^$/,
   isIrregular: (verb) => IRREGULAR_VERBS.has(verb),

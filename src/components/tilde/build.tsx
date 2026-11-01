@@ -2,11 +2,12 @@ import { useMemo, useRef, useState } from "react";
 import { Check, Keyboard, Puzzle, RotateCcw, Volume2, X } from "lucide-react";
 import { answerOf, difficultyFor, fold, sentence } from "@/lib/tilde/engine";
 import { pack } from "@/lib/tilde/lang";
-import { canSpeak, speak } from "@/lib/tilde/speech";
+import { hasVoice, speak } from "@/lib/tilde/speech";
 import { usePlay } from "@/lib/tilde/store";
 import type { Difficulty, Item } from "@/lib/tilde/types";
 import { wordsIn } from "@/lib/tilde/vocab";
 import { AccentKeys, Chip, buzz } from "./shared";
+import { PronLine } from "./pronline";
 
 /** Longest sentence (in words) offered at each level. */
 const MAX_WORDS: Record<Difficulty, number> = { facil: 8, medio: 11, dificil: 16 };
@@ -98,7 +99,7 @@ function BuildCard({ item, onNext }: { item: Item; onNext: () => void }) {
   const [result, setResult] = useState<null | { ok: boolean; exact: boolean; xp: number; typed: boolean }>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const base = BASE_XP[difficultyFor(item)];
-  const voice = canSpeak() && Boolean(pack().speechLang);
+  const voice = hasVoice();
 
   function finish(given: string[], typed: boolean) {
     const g = grade(given, target);
@@ -173,6 +174,7 @@ function BuildCard({ item, onNext }: { item: Item; onNext: () => void }) {
               <p className="mt-1 font-display text-lg leading-snug" lang={pack().code}>
                 {full}
               </p>
+              <PronLine text={full} className="mt-2" />
             </div>
             {result.xp > 0 ? (
               <span className="pop shrink-0 rounded-full bg-good px-2.5 py-1 text-sm font-bold text-ink">+{result.xp}</span>

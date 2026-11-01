@@ -5,7 +5,17 @@ import { activate, pack } from "./lang";
 import { emptyCard, review, type Card } from "./vocab";
 import type { Difficulty, Item, Stats } from "./types";
 
-export type View = "play" | "learn" | "build" | "words" | "stories" | "speak" | "stats" | "placement";
+export type View =
+  | "foundations"
+  | "play"
+  | "learn"
+  | "build"
+  | "words"
+  | "stories"
+  | "speak"
+  | "phonetics"
+  | "stats"
+  | "placement";
 
 export type BuildStats = { done: number; right: number; typed: number; streak: number; best: number };
 
@@ -35,6 +45,8 @@ type PlayState = {
   /** Spaced-repetition card per vocabulary id. */
   vocab: Record<string, Card>;
   build: BuildStats;
+  /** Foundations lessons finished: id → tasks right first time. */
+  lessons: Record<string, number>;
   /** Unlocked badge id → when (ms). */
   badges: Record<string, number>;
   /** Badges unlocked this session that haven't been shown yet. */
@@ -62,6 +74,7 @@ type PlayState = {
   reviewWord: (id: string, ok: boolean) => number;
   /** Record a built sentence; returns XP earned. */
   built: (ok: boolean, typed: boolean, base: number, perfect: boolean) => number;
+  finishLesson: (id: string, right: number) => void;
   dismissFresh: () => void;
 };
 
@@ -74,6 +87,7 @@ export const usePlay = create<PlayState>()(
       placement: null,
       vocab: {},
       build: emptyBuild(),
+      lessons: {},
       badges: {},
       fresh: [],
       cardId: pack().items[0].id,
@@ -114,6 +128,7 @@ export const usePlay = create<PlayState>()(
           placement: null,
           vocab: {},
           build: emptyBuild(),
+          lessons: {},
           badges: {},
           fresh: [],
           cardId: nextItem(stats, [], get().difficulty).id,
@@ -159,6 +174,13 @@ export const usePlay = create<PlayState>()(
         set({ badges, fresh: [...get().fresh, ...added] });
       },
       dismissFresh: () => set({ fresh: get().fresh.slice(1) }),
+      finishLesson: (id, right) => {
+        const first = get().lessons[id] === undefined;
+        set({
+          lessons: { ...get().lessons, [id]: Math.max(get().lessons[id] ?? 0, right) },
+          stats: first ? { ...get().stats, xp: get().stats.xp + 10 } : get().stats,
+        });
+      },
       markSeen: (ids) => {
         if (ids.length === 0) return;
         const vocab = { ...get().vocab };
@@ -202,6 +224,7 @@ export const usePlay = create<PlayState>()(
         placement: state.placement,
         vocab: state.vocab,
         build: state.build,
+        lessons: state.lessons,
         badges: state.badges,
         cardId: state.cardId,
         difficulty: state.difficulty,
@@ -243,11 +266,19 @@ export function switchLanguage(code: string): void {
     placement: saved.placement ?? null,
     vocab: saved.vocab ?? {},
     build: { ...emptyBuild(), ...saved.build },
+    lessons: saved.lessons ?? {},
     badges: saved.badges ?? {},
     fresh: [],
     difficulty,
     typeMode: saved.typeMode ?? false,
     cardId: card && difficultyFor(card) === difficulty ? card.id : nextItem(stats, [], difficulty).id,
-    view: (view === "speak" && !next.speechLang) || view === "placement" ? "play" : view,
+    view:
+      next.code === "ga" && !saved.stats?.seen && !saved.lessons
+        ? "foundations"
+        : view === "foundations" && next.code !== "ga"
+          ? "play"
+          : (view === "speak" && !next.speechLang) || view === "placement"
+            ? "play"
+            : view,
   });
 }

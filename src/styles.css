@@ -80,6 +80,19 @@
   }
 }
 
+/* Irish: sea-green, slate and gold — set on <html data-lang="ga">. */
+html[data-lang="ga"] {
+  --color-bg: #0b1311;
+  --color-surface: #13201c;
+  --color-fg: #eef2ea;
+  --color-muted: #9bb0a5;
+  --color-line: #23352e;
+  --color-accent: #4cc38a;
+  --color-ink: #06170f;
+  --color-good: #8fd694;
+  --color-bad: #ff8a7a;
+}
+
 .glow {
   background:
     radial-gradient(60% 100% at 15% 0%, color-mix(in oklab, var(--color-accent) 18%, transparent), transparent 70%),

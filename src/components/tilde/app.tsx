@@ -8,10 +8,13 @@ import {
   Flame,
   Globe,
   FlaskConical,
+  AudioLines,
   Brain,
+  Sprout,
   Keyboard,
   LayoutGrid,
   Puzzle,
+  Volume2,
   Library,
   Lightbulb,
   Mic,
@@ -35,16 +38,21 @@ import {
   sentence,
 } from "@/lib/tilde/engine";
 import { PACKS, pack, useLang, type LangCode } from "@/lib/tilde/lang";
-import { switchLanguage, usePlay } from "@/lib/tilde/store";
-import { DIFFICULTIES, type Difficulty, type Item, type Tense } from "@/lib/tilde/types";
+import { switchLanguage, usePlay, type View } from "@/lib/tilde/store";
+import { DIFFICULTIES, type Difficulty, type Item, type Pack, type Tense } from "@/lib/tilde/types";
 import { BadgeGrid, BadgeToast, useBadgeWatcher } from "./badges";
 import { Build } from "./build";
+import { CelticLandscape } from "./celtic";
+import { Foundations } from "./foundations";
+import { Phonetics } from "./phonetics";
 import { Words } from "./words";
 import { Learn } from "./learn";
 import { PLACEMENT_BLURB, PlacementTest } from "./placement";
 import { Stories } from "./stories";
 import { wordsIn } from "@/lib/tilde/vocab";
 import { Chip, buzz } from "./shared";
+import { PronLine } from "./pronline";
+import { hasVoice, speak } from "@/lib/tilde/speech";
 import { Speak } from "./speak";
 
 const DIFFICULTY_EN: Record<Difficulty, string> = {
@@ -79,6 +87,11 @@ export function Tilde() {
     switchLanguage(useLang.getState().code);
     setReady(true);
   }, []);
+
+  // Let CSS theme the whole page per language (Irish gets a Celtic palette).
+  useEffect(() => {
+    document.documentElement.dataset.lang = lang;
+  }, [lang]);
 
   // Activate the new language *before* re-rendering, so no screen ever reads
   // one language's sentences against another language's tables.
@@ -126,7 +139,11 @@ export function Tilde() {
 
   return (
     <div className="safe-area relative min-h-screen overflow-x-hidden bg-bg text-fg">
-      <div className="glow pointer-events-none absolute inset-x-0 top-0 h-80" aria-hidden="true" />
+      {current.code === "ga" ? (
+        <CelticLandscape />
+      ) : (
+        <div className="glow pointer-events-none absolute inset-x-0 top-0 h-80" aria-hidden="true" />
+      )}
       <div className="relative mx-auto max-w-xl px-4">
         <header className="flex items-center gap-3 pt-5">
           <Logo />
@@ -150,7 +167,10 @@ export function Tilde() {
               </select>
             </label>
             <Pill label="Streak">
-              <Flame className={`size-4 ${stats.streak > 0 ? "text-accent" : "text-muted"}`} aria-hidden="true" />
+              <Flame
+                className={`size-4 ${stats.streak > 0 ? "text-accent" : "text-muted"}`}
+                aria-hidden="true"
+              />
               <span key={stats.streak} className={stats.streak > 0 ? "pop" : undefined}>
                 {stats.streak}
               </span>
@@ -171,30 +191,14 @@ export function Tilde() {
           <div className="xp-fill h-full rounded-full" style={{ width: `${xpWidth}%` }} />
         </div>
 
-        <nav className={`mt-5 grid ${current.speechLang ? "grid-cols-7" : "grid-cols-6"} gap-0.5 rounded-full border border-line bg-surface p-1`} aria-label="Sections">
-          <Segment on={view === "play"} onClick={() => setView("play")}>
-            <PlayIcon className="size-3.5" aria-hidden="true" /> Play
-          </Segment>
-          <Segment on={view === "learn"} onClick={() => setView("learn")}>
-            <BookOpen className="size-3.5" aria-hidden="true" /> Learn
-          </Segment>
-          <Segment on={view === "build"} onClick={() => setView("build")}>
-            <Puzzle className="size-3.5" aria-hidden="true" /> Build
-          </Segment>
-          <Segment on={view === "words"} onClick={() => setView("words")}>
-            <Brain className="size-3.5" aria-hidden="true" /> Words
-          </Segment>
-          <Segment on={view === "stories"} onClick={() => setView("stories")}>
-            <Library className="size-3.5" aria-hidden="true" /> Stories
-          </Segment>
-          {current.speechLang ? (
-            <Segment on={view === "speak"} onClick={() => setView("speak")}>
-              <Mic className="size-3.5" aria-hidden="true" /> Speak
-            </Segment>
-          ) : null}
-          <Segment on={view === "stats"} onClick={() => setView("stats")}>
-            <BarChart3 className="size-3.5" aria-hidden="true" /> Stats
-          </Segment>
+        <nav className="-mx-4 mt-5 overflow-x-auto px-4 [scrollbar-width:none]" aria-label="Sections">
+          <div className="flex w-max gap-1 rounded-full border border-line bg-surface p-1">
+            {tabsFor(current).map((tab) => (
+              <Segment key={tab.view} on={view === tab.view} onClick={() => setView(tab.view)}>
+                <tab.icon className="size-3.5" aria-hidden="true" /> {tab.label}
+              </Segment>
+            ))}
+          </div>
         </nav>
 
         {view === "play" || view === "speak" || view === "build" ? (
@@ -209,7 +213,9 @@ export function Tilde() {
                     onClick={() => (view === "play" ? setDifficulty(level) : setLevel(level))}
                     aria-pressed={on}
                     className={`tap rounded-2xl border px-2 py-2 text-left leading-tight ${
-                      on ? "border-accent bg-accent/12 text-fg" : "border-line bg-surface/60 text-fg"
+                      on
+                        ? "border-accent bg-accent/12 text-fg"
+                        : "border-line bg-surface/60 text-fg"
                     }`}
                   >
                     <span className="flex items-center gap-1.5 text-sm font-semibold">
@@ -227,7 +233,10 @@ export function Tilde() {
           </section>
         ) : null}
 
-        {current.notice && view !== "stats" && view !== "placement" && !noticeSeen.split(",").includes(current.code) ? (
+        {current.notice &&
+        view !== "stats" &&
+        view !== "placement" &&
+        !noticeSeen.split(",").includes(current.code) ? (
           <Notice notice={current.notice} onDismiss={() => hideNotice(current.code)} />
         ) : null}
 
@@ -245,7 +254,11 @@ export function Tilde() {
               >
                 Take test
               </button>
-              <button type="button" onClick={dismissPlacement} className="tap text-xs text-muted underline">
+              <button
+                type="button"
+                onClick={dismissPlacement}
+                className="tap text-xs text-muted underline"
+              >
                 No thanks
               </button>
             </div>
@@ -253,7 +266,11 @@ export function Tilde() {
         ) : null}
 
         <main className="pt-5 pb-16">
-          {view === "placement" ? (
+          {view === "foundations" && current.code === "ga" ? (
+            <Foundations />
+          ) : view === "phonetics" ? (
+            <Phonetics />
+          ) : view === "placement" ? (
             <PlacementTest key={lang} />
           ) : view === "build" ? (
             <Build key={lang} />
@@ -318,18 +335,50 @@ function Dots({ count, on }: { count: number; on: boolean }) {
 }
 
 function Segment({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (on) ref.current?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+  }, [on]);
   return (
     <button
+      ref={ref}
       type="button"
       onClick={onClick}
       aria-current={on ? "page" : undefined}
-      className={`tap flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-full text-[10.5px] font-semibold sm:text-xs ${
+      className={`tap flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold ${
         on ? "bg-fg text-bg shadow-sm" : "text-muted hover:text-fg"
       }`}
     >
       {children}
     </button>
   );
+}
+
+type Tab = { view: View; label: string; icon: typeof PlayIcon };
+
+/** Irish gets its own path (structure first); Spanish and German keep the classic set. */
+function tabsFor(p: Pack): Tab[] {
+  if (p.code === "ga") {
+    return [
+      { view: "foundations", label: "Foundations", icon: Sprout },
+      { view: "play", label: "Play", icon: PlayIcon },
+      { view: "build", label: "Build", icon: Puzzle },
+      { view: "words", label: "Words", icon: Brain },
+      { view: "stories", label: "Stories", icon: Library },
+      { view: "phonetics", label: "Phonetics", icon: AudioLines },
+      { view: "stats", label: "Stats", icon: BarChart3 },
+    ];
+  }
+  return [
+    { view: "play", label: "Play", icon: PlayIcon },
+    { view: "learn", label: "Learn", icon: BookOpen },
+    { view: "build", label: "Build", icon: Puzzle },
+    { view: "words", label: "Words", icon: Brain },
+    { view: "stories", label: "Stories", icon: Library },
+    ...(p.speechLang ? [{ view: "speak" as View, label: "Speak", icon: Mic }] : []),
+    { view: "phonetics", label: "Phonetics", icon: AudioLines },
+    { view: "stats", label: "Stats", icon: BarChart3 },
+  ];
 }
 
 function Play({
@@ -411,7 +460,8 @@ function Play({
   // In typing mode, focus the answer on desktop (fine pointer) so you can type
   // straight away; on phones this would pop the keyboard over the sentence.
   useEffect(() => {
-    if (typeMode && window.matchMedia?.("(pointer: fine)").matches) inputRef.current?.focus({ preventScroll: true });
+    if (typeMode && window.matchMedia?.("(pointer: fine)").matches)
+      inputRef.current?.focus({ preventScroll: true });
   }, [typeMode]);
 
   useEffect(() => {
@@ -468,7 +518,10 @@ function Play({
           </span>
           {tail}
         </h1>
-        <p className="mt-5 border-t border-line pt-4 text-[15px] leading-relaxed text-muted">{item.en}</p>
+        {result ? <PronLine text={sentence(item, answer)} className="mt-3" /> : null}
+        <p className="mt-5 border-t border-line pt-4 text-[15px] leading-relaxed text-muted">
+          {item.en}
+        </p>
       </article>
 
       {result ? (
@@ -484,10 +537,16 @@ function Play({
             }`}
             aria-hidden="true"
           >
-            {result.ok ? <Check className="size-5" strokeWidth={3} /> : <X className="size-5" strokeWidth={3} />}
+            {result.ok ? (
+              <Check className="size-5" strokeWidth={3} />
+            ) : (
+              <X className="size-5" strokeWidth={3} />
+            )}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="font-display text-xl font-semibold">{result.ok ? "¡Correcto!" : "Not quite."}</p>
+            <p className="font-display text-xl font-semibold">
+              {result.ok ? "¡Correcto!" : "Not quite."}
+            </p>
             <p className="mt-0.5 text-sm text-muted">
               {result.ok
                 ? result.via === "type" && !result.accent
@@ -507,15 +566,29 @@ function Play({
       ) : null}
 
       {result ? (
-        <button
-          ref={nextRef}
-          type="button"
-          onClick={goNext}
-          className="tap mt-4 flex min-h-13 w-full items-center justify-center gap-2 rounded-2xl bg-accent text-base font-semibold text-ink shadow-[0_8px_24px_-8px] shadow-accent/60"
-        >
-          Next sentence
-          <span className="hidden rounded-md bg-ink/15 px-1.5 text-xs [@media(pointer:fine)]:inline">↵</span>
-        </button>
+        <div className="mt-4 flex gap-2">
+          {hasVoice() ? (
+            <button
+              type="button"
+              onClick={() => void speak(sentence(item, answer))}
+              className="tap grid min-h-13 shrink-0 place-items-center rounded-2xl border border-line bg-surface px-4"
+              aria-label="Listen to the sentence"
+            >
+              <Volume2 className="size-5 text-accent" aria-hidden="true" />
+            </button>
+          ) : null}
+          <button
+            ref={nextRef}
+            type="button"
+            onClick={goNext}
+            className="tap flex min-h-13 flex-1 items-center justify-center gap-2 rounded-2xl bg-accent text-base font-semibold text-ink shadow-[0_8px_24px_-8px] shadow-accent/60"
+          >
+            Next sentence
+            <span className="hidden rounded-md bg-ink/15 px-1.5 text-xs [@media(pointer:fine)]:inline">
+              ↵
+            </span>
+          </button>
+        </div>
       ) : (
         <form
           className="mt-5"
@@ -584,7 +657,11 @@ function Play({
                   +{sawChoices ? choicePoints : typePoints}
                 </span>
               </div>
-              <div className="mt-2.5 flex flex-wrap gap-1.5" role="group" aria-label="Insert accented letter">
+              <div
+                className="mt-2.5 flex flex-wrap gap-1.5"
+                role="group"
+                aria-label="Insert accented letter"
+              >
                 {pack().accentKeys.map((char) => (
                   <button
                     key={char}
@@ -690,8 +767,8 @@ function Progress({
       </p>
       {speech.tries > 0 ? (
         <p className="mt-1 flex items-center gap-1 px-1 text-xs text-muted tabular-nums">
-          <Mic className="size-3" aria-hidden="true" /> {speech.perfect} of {speech.tries} spoken perfectly · best
-          speaking streak {speech.best}
+          <Mic className="size-3" aria-hidden="true" /> {speech.perfect} of {speech.tries} spoken
+          perfectly · best speaking streak {speech.best}
         </p>
       ) : null}
 
@@ -701,7 +778,9 @@ function Progress({
 
       <BadgeGrid />
 
-      <h2 className="mt-7 px-1 text-xs font-semibold tracking-widest text-muted uppercase">By tense</h2>
+      <h2 className="mt-7 px-1 text-xs font-semibold tracking-widest text-muted uppercase">
+        By tense
+      </h2>
       <ul className="card mt-2 divide-y divide-line rounded-3xl border border-line px-4">
         {pack().tenses.map((tense) => {
           const row = stats.byTense[tense];
@@ -725,7 +804,9 @@ function Progress({
 
       {stats.misses.length > 0 ? (
         <>
-          <h2 className="mt-7 px-1 text-xs font-semibold tracking-widest text-muted uppercase">Review your misses</h2>
+          <h2 className="mt-7 px-1 text-xs font-semibold tracking-widest text-muted uppercase">
+            Review your misses
+          </h2>
           <ul className="mt-2 space-y-2">
             {stats.misses.map((id) => {
               const missed = itemById(id);
@@ -751,7 +832,9 @@ function Progress({
         <div className="mt-10 border-t border-line pt-5">
           {confirming ? (
             <div className="flex flex-wrap items-center gap-2">
-              <p className="w-full text-sm text-muted">Erase your level, streaks and history on this device?</p>
+              <p className="w-full text-sm text-muted">
+                Erase your level, streaks and history on this device?
+              </p>
               <button
                 type="button"
                 onClick={() => {
@@ -771,7 +854,11 @@ function Progress({
               </button>
             </div>
           ) : (
-            <button type="button" onClick={() => setConfirming(true)} className="tap text-sm text-muted underline">
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              className="tap text-sm text-muted underline"
+            >
               Reset progress
             </button>
           )}
@@ -781,7 +868,13 @@ function Progress({
   );
 }
 
-function Notice({ notice, onDismiss }: { notice: { title: string; body: string }; onDismiss?: () => void }) {
+function Notice({
+  notice,
+  onDismiss,
+}: {
+  notice: { title: string; body: string };
+  onDismiss?: () => void;
+}) {
   return (
     <div className="rise mt-4 rounded-2xl border border-line bg-surface p-4" role="note">
       <p className="flex items-center gap-2 text-sm font-semibold">
@@ -790,7 +883,11 @@ function Notice({ notice, onDismiss }: { notice: { title: string; body: string }
       </p>
       <p className="mt-1.5 text-xs leading-relaxed text-muted">{notice.body}</p>
       {onDismiss ? (
-        <button type="button" onClick={onDismiss} className="tap mt-2 text-xs font-semibold text-accent">
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="tap mt-2 text-xs font-semibold text-accent"
+        >
           Got it
         </button>
       ) : null}
@@ -803,7 +900,10 @@ function PlacementCard() {
   const setView = usePlay((state) => state.setView);
   return (
     <div className="card mt-3 flex items-center gap-3 rounded-2xl border border-line p-4">
-      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent/15 text-accent" aria-hidden="true">
+      <span
+        className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent/15 text-accent"
+        aria-hidden="true"
+      >
         <FlaskConical className="size-5" />
       </span>
       <div className="min-w-0 flex-1">
