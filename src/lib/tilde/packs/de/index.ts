@@ -1,3 +1,4 @@
+import { COURSE } from "./course";
 import type { Guide, Pack, Tense } from "../../types";
 import { FORMS } from "./forms";
 import { ITEMS } from "./items";
@@ -126,6 +127,7 @@ export const german: Pack = {
   forms: FORMS,
   items: ITEMS,
   stories: STORIES,
+  course: COURSE,
   vocab: VOCAB,
   guides: GUIDES,
   accentKeys: ["ä", "ö", "ü", "ß"],

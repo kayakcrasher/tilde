@@ -81,6 +81,8 @@ async function fetchAudio(text: string, voice: string, rate: number): Promise<st
 }
 
 let current: HTMLAudioElement | null = null;
+/** Bumped for every request, so an interrupted one can tell it was replaced. */
+let playToken = 0;
 
 async function sha1Key(text: string): Promise<string | null> {
   try {
@@ -118,21 +120,28 @@ function play(url: string, slow: boolean): Promise<void> {
 
 /** Speak Irish text. Works offline for everything in the course. */
 export async function speakIrish(text: string, slow = false): Promise<void> {
+  const mine = ++playToken;
+  const superseded = () => mine !== playToken;
   const dialect = DIALECTS.find((d) => d.id === getDialect()) ?? DIALECTS[0];
   const bundled = await bundledUrl(text);
+  if (superseded()) return;
   const online = typeof navigator === "undefined" || navigator.onLine !== false;
   // Connacht, or no connection: use the recording that ships with the app.
   if (bundled && (dialect.id === "CO" || !online)) {
     try {
       return await play(bundled, slow);
     } catch {
-      /* fall through to ABAIR */
+      // Cut off by the next sound: that's fine, not a broken clip.
+      if (superseded()) return;
+      /* otherwise fall through to ABAIR */
     }
   }
   try {
     const url = await fetchAudio(text, dialect.voice, 1);
+    if (superseded()) return;
     return await play(url, slow);
   } catch {
+    if (superseded()) return;
     // Last resort: the bundled Connacht recording. If there isn't one (and
     // we're offline), stay quiet rather than throwing at the button.
     if (bundled) await play(bundled, slow).catch(() => {});

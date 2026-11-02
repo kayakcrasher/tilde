@@ -1,3 +1,4 @@
+import { COURSE } from "./course";
 import type { Guide, Pack, Tense } from "../../types";
 import { FORMS } from "./forms";
 import { ITEMS } from "./items";
@@ -125,6 +126,7 @@ export const irish: Pack = {
   forms: FORMS,
   items: ITEMS,
   stories: STORIES,
+  course: COURSE,
   vocab: VOCAB,
   guides: GUIDES,
   accentKeys: ["á", "é", "í", "ó", "ú", "'"],

@@ -1,9 +1,8 @@
-// The lesson tree: units (one tense each, split into parts), skills (small
-// groups of verbs) and generated exercise sessions. Built from each language
-// pack's data, so every language gets its own tree.
-import { answerOf, choicesFor, difficultyFor, fold, rowOf, sentence } from "./engine";
+// The lesson course: each language's hand-written beginner units (packs/*/course.ts)
+// turned into lessons that teach each phrase first, then practise it.
+import { fold, rowOf } from "./engine";
 import { pack } from "./lang";
-import type { Difficulty, Item, VocabEntry } from "./types";
+import type { CourseLesson, CourseUnit, Item, Phrase } from "./types";
 
 // ---------- word-tile helpers (shared with Build) ----------
 
@@ -52,155 +51,186 @@ export function distractorsFor(item: Item, words: string[]): string[] {
   return out;
 }
 
-// ---------- curriculum ----------
+// ---------- course ----------
 
-export type Skill = { id: string; tense: string; verbs: string[]; title: string };
-export type Unit = { id: string; tense: string; title: string; subtitle: string; level: Difficulty; skills: Skill[] };
+export type FlatLesson = CourseLesson & { unit: CourseUnit; unitIndex: number; index: number };
 
-const VERBS_PER_SKILL = 5;
-const SKILLS_PER_UNIT = 6;
-export const LEVELS_PER_SKILL = 3;
+const flatCache = new Map<string, FlatLesson[]>();
 
-const cache = new Map<string, Unit[]>();
-
-/** Units in teaching order: each tense, split into parts of up to six skills. */
-export function curriculum(): Unit[] {
+/** Every lesson in order, with its unit attached. */
+export function lessonsInOrder(): FlatLesson[] {
   const p = pack();
-  const hit = cache.get(p.code);
+  const hit = flatCache.get(p.code);
   if (hit) return hit;
-  const units: Unit[] = [];
-  const tenses = [...p.tenses].sort((a, b) => minBand(a) - minBand(b));
-  for (const tense of tenses) {
-    const counts = new Map<string, number>();
-    for (const item of p.items) if (item.tense === tense) counts.set(item.verb, (counts.get(item.verb) ?? 0) + 1);
-    const verbs = [...counts.keys()].sort((a, b) => (counts.get(b) ?? 0) - (counts.get(a) ?? 0) || a.localeCompare(b));
-    const skills: Skill[] = [];
-    for (let i = 0; i < verbs.length; i += VERBS_PER_SKILL) {
-      const group = verbs.slice(i, i + VERBS_PER_SKILL);
-      if (group.length < 3 && skills.length) skills[skills.length - 1].verbs.push(...group);
-      else skills.push({ id: `${tense}:${group[0]}`, tense, verbs: group, title: "" });
-    }
-    for (const s of skills) s.title = s.verbs.slice(0, 3).join(" · ") + (s.verbs.length > 3 ? " …" : "");
-    // Split into parts of up to six skills; a tiny leftover joins the part before.
-    const chunks: Skill[][] = [];
-    for (let i = 0; i < skills.length; i += SKILLS_PER_UNIT) chunks.push(skills.slice(i, i + SKILLS_PER_UNIT));
-    if (chunks.length > 1 && chunks[chunks.length - 1].length < 3) chunks[chunks.length - 2].push(...chunks.pop()!);
-    const level = difficultyFor(p.items.find((it) => it.tense === tense)!);
-    chunks.forEach((slice, k) => {
-      units.push({
-        id: `${tense}#${k + 1}`,
-        tense,
-        title: p.tenseTitle(tense) + (chunks.length > 1 ? ` · ${k + 1}` : ""),
-        subtitle: p.guides[tense]?.english ?? "",
-        level,
-        skills: slice,
-      });
-    });
-  }
-  cache.set(p.code, units);
-  return units;
+  const out: FlatLesson[] = [];
+  p.course.forEach((unit, unitIndex) => unit.lessons.forEach((l) => out.push({ ...l, unit, unitIndex, index: out.length })));
+  flatCache.set(p.code, out);
+  return out;
 }
-
-function minBand(tense: string): number {
-  return Math.min(...pack().items.filter((it) => it.tense === tense).map((it) => it.band));
-}
-
-// ---------- exercises ----------
 
 export type Exercise =
-  | { kind: "cloze"; item: Item; options: string[]; typed: boolean }
-  | { kind: "conjugate"; verb: string; tense: string; person: number; answer: string; options: string[] }
-  | { kind: "meaning"; entry: VocabEntry; options: string[]; reverse: boolean }
-  | { kind: "match"; pairs: { word: string; en: string }[] }
-  | { kind: "build"; item: Item; target: string[]; bank: string[] }
-  | { kind: "listen"; item: Item; text: string; options: string[] };
+  | { kind: "tip"; title: string; text: string }
+  | { kind: "intro"; p: Phrase }
+  /** See (and hear) the phrase, pick its meaning. */
+  | { kind: "pick-en"; p: Phrase; options: string[] }
+  /** See the meaning, pick the phrase — as picture cards when every option has a picture. */
+  | { kind: "pick-t"; p: Phrase; options: Phrase[]; pics: boolean }
+  /** Build the phrase from word tiles. */
+  | { kind: "tiles-t"; p: Phrase; target: string[]; bank: string[] }
+  /** Build the English meaning from word tiles. */
+  | { kind: "tiles-en"; p: Phrase; target: string[]; bank: string[] }
+  /** Hear it, pick what was said. */
+  | { kind: "listen"; p: Phrase; options: Phrase[] }
+  | { kind: "match"; pairs: Phrase[] };
+
+export const isTeaching = (e: Exercise) => e.kind === "tip" || e.kind === "intro";
 
 function pick<T>(list: T[], n: number): T[] {
   return shuffle(list).slice(0, n);
 }
 
-function verbEntry(verb: string): VocabEntry | undefined {
-  return pack().vocab.find((v) => v.kind === "verb" && v.word === verb);
+const lc = (s: string) => s.toLowerCase().replace(/[¿?¡!.,]/g, "").trim();
+
+/** Phrases for wrong options: this lesson first, then earlier ones, then the rest of the course. */
+function poolFor(index: number): Phrase[] {
+  const all = lessonsInOrder();
+  const here = all[index].phrases;
+  const before = all.slice(0, index).flatMap((l) => l.phrases);
+  const after = all.slice(index + 1).flatMap((l) => l.phrases);
+  return [...shuffle(here), ...shuffle(before), ...shuffle(after)];
 }
 
-function meaningOptions(entry: VocabEntry, reverse: boolean): string[] {
-  const pool = shuffle(pack().vocab.filter((v) => v.kind === entry.kind && v.en !== entry.en && v.word !== entry.word));
-  const wrong: VocabEntry[] = [];
-  for (const v of pool) {
-    if (wrong.length >= 3) break;
-    if (!wrong.some((w) => w.en === v.en || w.word === v.word)) wrong.push(v);
-  }
-  return shuffle([entry, ...wrong]).map((v) => (reverse ? v.word : v.en));
-}
-
-function conjugate(verb: string, tense: string): Exercise | null {
-  const row = rowOf(verb, tense);
-  if (!row) return null;
-  const persons = shuffle([0, 1, 2, 3, 4, 5]);
-  for (const person of persons) {
-    const answer = row[person];
-    const others = [...new Set(row.filter((f) => fold(f) !== fold(answer)))];
-    if (others.length >= 3) return { kind: "conjugate", verb, tense, person, answer, options: shuffle([answer, ...pick(others, 3)]) };
-  }
-  return null;
-}
-
-function build(item: Item): Exercise | null {
-  const target = wordsOf(sentence(item, answerOf(item)));
-  if (target.length > 9) return null;
-  return { kind: "build", item, target, bank: shuffle([...target, ...distractorsFor(item, target)]) };
-}
-
-function listen(item: Item, pool: Item[]): Exercise {
-  const text = sentence(item, answerOf(item));
-  const others = pick(pool.filter((it) => it.id !== item.id), 2).map((it) => sentence(it, answerOf(it)));
-  return { kind: "listen", item, text, options: shuffle([text, ...others]) };
-}
-
-/** A lesson for a skill at a level (0-based): about 12 mixed exercises. */
-export function makeLesson(skill: Skill, level: number, voice: boolean): Exercise[] {
-  const p = pack();
-  const items = p.items.filter((it) => it.tense === skill.tense && skill.verbs.includes(it.verb));
-  const tenseItems = p.items.filter((it) => it.tense === skill.tense);
-  const out: Exercise[] = [];
-  const clozeItems = pick(items, level >= 1 ? 4 : 3);
-  clozeItems.forEach((item, i) => out.push({ kind: "cloze", item, options: choicesFor(item), typed: level >= 2 && i === 0 }));
-  for (const verb of pick(skill.verbs, 2)) {
-    const c = conjugate(verb, skill.tense);
-    if (c) out.push(c);
-  }
-  const entries = skill.verbs.map(verbEntry).filter((e): e is VocabEntry => Boolean(e));
-  pick(entries, 2).forEach((entry, i) => out.push({ kind: "meaning", entry, options: meaningOptions(entry, i === 1), reverse: i === 1 }));
-  if (entries.length >= 3) out.push({ kind: "match", pairs: pick(entries, Math.min(4, entries.length)).map((e) => ({ word: e.word, en: e.en })) });
-  for (const item of pick(items, 4)) {
-    if (out.filter((e) => e.kind === "build").length >= 2) break;
-    const b = build(item);
-    if (b) out.push(b);
-  }
-  if (voice && items.length) out.push(listen(pick(items, 1)[0], tenseItems));
-  // Top up with more gap-fills if a small skill came out short.
-  for (const item of pick(tenseItems, 12)) {
-    if (out.length >= 12) break;
-    if (!out.some((e) => (e.kind === "cloze" || e.kind === "build") && e.item.id === item.id))
-      out.push({ kind: "cloze", item, options: choicesFor(item), typed: false });
-  }
-  // Start gently with recognition, then mix.
-  const first: Exercise[] = out.filter((e) => e.kind === "meaning" || e.kind === "cloze").slice(0, 1);
-  return [...first, ...shuffle(out.filter((e) => !first.includes(e)))];
-}
-
-/** A test-out: 15 questions drawn from every unit up to and including this one. */
-export function makeTestOut(unitIndex: number, voice: boolean): Exercise[] {
-  const units = curriculum().slice(0, unitIndex + 1);
-  const skills = units.flatMap((u) => u.skills);
-  const recent = units[units.length - 1].skills;
-  const out: Exercise[] = [];
-  for (let i = 0; out.length < 15 && i < 60; i += 1) {
-    // Weight the unit being tested.
-    const skill = (i % 3 === 2 ? pick(skills, 1) : pick(recent, 1))[0];
-    const lesson = makeLesson(skill, 1, voice).filter((e) => e.kind !== "match");
-    const e = lesson[Math.floor(Math.random() * lesson.length)];
-    if (e && !out.some((x) => JSON.stringify(x) === JSON.stringify(e))) out.push(e);
+function others(p: Phrase, pool: Phrase[], n: number, needPic = false): Phrase[] {
+  const out: Phrase[] = [];
+  for (const q of pool) {
+    if (out.length >= n) break;
+    if (needPic && !q.pic) continue;
+    if (lc(q.en) === lc(p.en) || lc(q.t) === lc(p.t)) continue;
+    if (out.some((o) => lc(o.en) === lc(q.en) || lc(o.t) === lc(q.t) || (needPic && o.pic === q.pic))) continue;
+    if (needPic && q.pic === p.pic) continue;
+    out.push(q);
   }
   return out;
+}
+
+function pickEn(p: Phrase, pool: Phrase[]): Exercise {
+  return { kind: "pick-en", p, options: shuffle([p, ...others(p, pool, 3)]).map((q) => q.en) };
+}
+
+function pickT(p: Phrase, pool: Phrase[]): Exercise {
+  if (p.pic) {
+    const withPics = others(p, pool, 3, true);
+    if (withPics.length === 3) return { kind: "pick-t", p, options: shuffle([p, ...withPics]), pics: true };
+  }
+  return { kind: "pick-t", p, options: shuffle([p, ...others(p, pool, 3)]), pics: false };
+}
+
+function tileBank(target: string[], from: string[]): string[] {
+  const taken = new Set(target.map((w) => w.toLowerCase()));
+  const extra: string[] = [];
+  for (const w of shuffle(from)) {
+    if (extra.length >= Math.max(2, Math.min(4, target.length))) break;
+    if (!taken.has(w.toLowerCase()) && !extra.some((x) => x.toLowerCase() === w.toLowerCase())) extra.push(w);
+  }
+  return shuffle([...target, ...extra]);
+}
+
+function tilesT(p: Phrase, pool: Phrase[]): Exercise | null {
+  const target = wordsOf(p.t);
+  if (target.length < 2) return null;
+  return { kind: "tiles-t", p, target, bank: tileBank(target, pool.flatMap((q) => wordsOf(q.t))) };
+}
+
+function tilesEn(p: Phrase, pool: Phrase[]): Exercise | null {
+  const target = wordsOf(p.en);
+  if (target.length < 2) return null;
+  return { kind: "tiles-en", p, target, bank: tileBank(target, pool.flatMap((q) => wordsOf(q.en))) };
+}
+
+function listen(p: Phrase, pool: Phrase[]): Exercise {
+  return { kind: "listen", p, options: shuffle([p, ...others(p, pool, 2)]) };
+}
+
+function matchOf(phrases: Phrase[]): Exercise | null {
+  const pairs: Phrase[] = [];
+  for (const p of shuffle(phrases)) {
+    if (pairs.length >= 5) break;
+    if (!pairs.some((q) => lc(q.en) === lc(p.en) || lc(q.t) === lc(p.t))) pairs.push(p);
+  }
+  return pairs.length >= 3 ? { kind: "match", pairs } : null;
+}
+
+function earlierOf(index: number): Phrase[] {
+  return lessonsInOrder()
+    .slice(0, index)
+    .flatMap((l) => l.phrases);
+}
+
+/** One practice exercise for a phrase; `turn` rotates through the kinds. */
+function practise(p: Phrase, pool: Phrase[], turn: number, voice: boolean): Exercise {
+  const kinds = ["tiles-t", "pick-t", "tiles-en", voice ? "listen" : "pick-en", "pick-en"];
+  for (let k = 0; k < kinds.length; k += 1) {
+    const kind = kinds[(turn + k) % kinds.length];
+    const e =
+      kind === "tiles-t" ? tilesT(p, pool) : kind === "tiles-en" ? tilesEn(p, pool) : kind === "pick-t" ? pickT(p, pool) : kind === "listen" ? listen(p, pool) : pickEn(p, pool);
+    if (e) return e;
+  }
+  return pickEn(p, pool);
+}
+
+/**
+ * A lesson. First time: a tip, then each phrase is introduced and checked
+ * straight away, then everything is practised together with a little review.
+ * Practise again: no introductions, more building from tiles.
+ */
+export function makeLesson(index: number, replay: boolean, voice: boolean): Exercise[] {
+  const lesson = lessonsInOrder()[index];
+  const pool = poolFor(index);
+  const ps = lesson.phrases;
+  const out: Exercise[] = [];
+  if (!replay) {
+    if (lesson.tip) out.push({ kind: "tip", title: lesson.title, text: lesson.tip });
+    ps.forEach((p, i) => {
+      out.push({ kind: "intro", p });
+      // After every two new phrases, a quick check on both.
+      if (i % 2 === 1 || i === ps.length - 1) {
+        const fresh = ps.slice(i % 2 === 1 ? i - 1 : i, i + 1);
+        // Wrong options come from what's been taught so far where possible.
+        const taught = [...shuffle(ps.slice(0, i + 1)), ...shuffle(earlierOf(index)), ...pool];
+        fresh.forEach((q, k) => out.push((i + k) % 2 === 0 ? pickEn(q, taught) : pickT(q, taught)));
+      }
+    });
+  }
+  const practice: Exercise[] = [];
+  shuffle(ps).forEach((p, i) => practice.push(practise(p, pool, i + (replay ? 0 : 1), voice)));
+  if (replay) shuffle(ps).slice(0, 3).forEach((p, i) => practice.push(practise(p, pool, i + 2, voice)));
+  // A little review from earlier lessons.
+  const earlier = earlierOf(index);
+  pick(earlier, replay ? 3 : 2).forEach((p, i) => practice.push(practise(p, pool, i, voice)));
+  const m = matchOf(ps);
+  const mixed = shuffle(practice);
+  if (m) mixed.splice(Math.floor(mixed.length / 2), 0, m);
+  return [...out, ...mixed];
+}
+
+/** A test-out: 12 questions from every unit up to and including this one. */
+export function makeTestOut(unitIndex: number, voice: boolean): Exercise[] {
+  const all = lessonsInOrder();
+  const upTo = all.filter((l) => l.unitIndex <= unitIndex);
+  const recent = upTo.filter((l) => l.unitIndex === unitIndex);
+  const out: Exercise[] = [];
+  const used = new Set<string>();
+  for (let i = 0; out.length < 12 && i < 80; i += 1) {
+    const lesson = (i % 3 === 2 ? pick(upTo, 1) : pick(recent, 1))[0];
+    const p = pick(lesson.phrases, 1)[0];
+    if (used.has(p.t)) continue;
+    used.add(p.t);
+    out.push(practise(p, poolFor(lesson.index), Math.floor(Math.random() * 5), voice));
+  }
+  return out;
+}
+
+/** Text to say out loud for an exercise (the phrase being learned), if any. */
+export function phraseOf(e: Exercise): Phrase | null {
+  return "p" in e ? e.p : null;
 }

@@ -1,3 +1,4 @@
+import { COURSE } from "./course";
 import type { Pack } from "../../types";
 import { FORMS } from "./forms";
 import { GUIDES, TENSES, regularForm, splitForm } from "./guides";
@@ -21,6 +22,7 @@ export const spanish: Pack = {
   forms: FORMS,
   items: ITEMS,
   stories: STORIES,
+  course: COURSE,
   vocab: VOCAB,
   guides: GUIDES,
   accentKeys: ["á", "é", "í", "ó", "ú", "ü", "ñ"],

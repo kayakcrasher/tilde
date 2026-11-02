@@ -1,75 +1,83 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, Crown, Heart, Lock, Star, Trophy, Volume2, X, Zap } from "lucide-react";
-import { answerOf, atSentenceStart, capitalize, gradeTyped, parts, sentence } from "@/lib/tilde/engine";
+import { Check, Crown, Heart, Lightbulb, Lock, Sparkles, Star, Trophy, Turtle, Volume2, X, Zap } from "lucide-react";
 import { pack } from "@/lib/tilde/lang";
 import { hasVoice, speak } from "@/lib/tilde/speech";
 import { usePlay } from "@/lib/tilde/store";
-import { LEVELS_PER_SKILL, curriculum, gradeWords, makeLesson, makeTestOut, type Exercise, type Skill } from "@/lib/tilde/tree";
+import { gradeWords, isTeaching, lessonsInOrder, makeLesson, makeTestOut, type Exercise, type FlatLesson } from "@/lib/tilde/tree";
+import type { Phrase } from "@/lib/tilde/types";
 import { wordsIn } from "@/lib/tilde/vocab";
 import { PronLine } from "./pronline";
-import { AccentKeys, Chip, buzz } from "./shared";
-
-// Lets browser tests read answers; only compiled in when VITE_TEST_HOOKS is set.
-if (import.meta.env.VITE_TEST_HOOKS && typeof window !== "undefined") {
-  (window as unknown as { __tildeAnswer: typeof answerOf }).__tildeAnswer = answerOf;
-}
+import { buzz } from "./shared";
 
 const UNIT_COLORS = ["#ff5a36", "#4cc38a", "#5aa9ff", "#c084fc", "#f5b942", "#ff6b9a"];
+/** Irish keeps to its Celtic greens and golds. */
+const UNIT_COLORS_GA = ["#4cc38a", "#e0b45a", "#5fb3b3", "#9ccf6e", "#d9925a", "#7fb2e0"];
+const unitColor = (i: number) => {
+  const list = pack().code === "ga" ? UNIT_COLORS_GA : UNIT_COLORS;
+  return list[i % list.length];
+};
+/** Each lesson can be finished this many times (crowns). */
+const CROWNS = 3;
 
-type Session = { kind: "lesson"; skill: Skill } | { kind: "test"; unitIndex: number };
+/** What's planned after the beginner units (shown at the end of the path). */
+const COMING = ["Daily routine", "Describing things", "Weather & seasons", "Shopping", "Plans for the weekend", "What happened yesterday"];
+
+type Session = { kind: "lesson"; index: number } | { kind: "test"; unitIndex: number };
 
 export function Lessons() {
   const [session, setSession] = useState<Session | null>(null);
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [session]);
   if (session) return <Runner key={JSON.stringify(session)} session={session} onExit={() => setSession(null)} />;
   return <Path onStart={setSession} />;
 }
 
+const say = (text: string, slow = false) => {
+  void speak(text, slow).catch(() => {});
+};
+
 // ---------------- the path ----------------
 
 function Path({ onStart }: { onStart: (s: Session) => void }) {
-  const skills = usePlay((s) => s.skills);
+  const done = usePlay((s) => s.skills);
   const testedOut = usePlay((s) => s.testedOut);
-  const units = curriculum();
+  const units = pack().course;
+  const flat = lessonsInOrder();
   const [open, setOpen] = useState<string | null>(null);
-  const flat = units.flatMap((u) => u.skills);
-  const unlocked = (skill: Skill) => {
-    const i = flat.indexOf(skill);
-    if (i === 0 || (skills[skill.id] ?? 0) > 0) return true;
-    const unit = units.find((u) => u.skills.includes(skill))!;
-    if (testedOut.includes(unit.id)) return true;
-    return (skills[flat[i - 1].id] ?? 0) > 0;
-  };
-  const current = flat.find((s) => unlocked(s) && !(skills[s.id] ?? 0));
-  const total = flat.length;
-  const started = flat.filter((s) => (skills[s.id] ?? 0) > 0).length;
-  const crowns = flat.reduce((n, s) => n + (skills[s.id] ?? 0), 0);
+  const count = (l: FlatLesson) => done[l.id] ?? 0;
+  const unlocked = (l: FlatLesson) => l.index === 0 || count(l) > 0 || testedOut.includes(l.unit.id) || count(flat[l.index - 1]) > 0;
+  const current = flat.find((l) => unlocked(l) && count(l) === 0);
+  const finished = flat.filter((l) => count(l) > 0).length;
+  const crowns = flat.reduce((n, l) => n + count(l), 0);
 
   return (
     <div className="rise">
       <div className="card flex items-center gap-4 rounded-3xl border border-line p-4">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold tracking-widest text-accent uppercase">Lesson path</p>
+          <p className="text-xs font-semibold tracking-widest text-accent uppercase">Lessons</p>
           <p className="mt-0.5 font-display text-xl font-bold">
-            {pack().native} · {started}/{total} skills
+            {pack().native} · {finished}/{flat.length}
           </p>
-          <p className="mt-0.5 text-xs text-muted">Lessons build the verbs and words that make you better at the Cloze game.</p>
+          <p className="mt-0.5 text-xs text-muted">Start from zero: words and phrases first, with pictures and sound.</p>
         </div>
-        <div className="flex shrink-0 items-center gap-1 rounded-full bg-accent/15 px-3 py-1.5 font-bold text-accent tabular-nums">
+        <div className="flex shrink-0 items-center gap-1 rounded-full bg-accent/15 px-3 py-1.5 font-bold text-accent tabular-nums" aria-label={`${crowns} crowns`}>
           <Crown className="size-4" aria-hidden="true" /> {crowns}
         </div>
       </div>
 
       {units.map((unit, ui) => {
-        const color = UNIT_COLORS[ui % UNIT_COLORS.length];
-        const unitOpen = unit.skills.some(unlocked);
-        const allDone = unit.skills.every((s) => (skills[s.id] ?? 0) > 0);
+        const color = unitColor(ui);
+        const lessons = flat.filter((l) => l.unitIndex === ui);
+        const unitOpen = lessons.some(unlocked);
+        const allDone = lessons.every((l) => count(l) > 0);
         return (
           <section key={unit.id} className="mt-7">
             <div className="flex items-center gap-3 rounded-2xl px-4 py-3 text-ink" style={{ background: color }}>
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-bold tracking-widest uppercase opacity-80">Unit {ui + 1}</p>
                 <p className="font-display text-lg leading-tight font-bold">{unit.title}</p>
-                <p className="text-xs opacity-80">{unit.subtitle}</p>
+                <p className="text-xs opacity-80">{unit.about}</p>
               </div>
               {!unitOpen ? (
                 <button
@@ -81,86 +89,87 @@ function Path({ onStart }: { onStart: (s: Session) => void }) {
                 </button>
               ) : null}
             </div>
-            <ol className="mt-5 flex flex-col items-center gap-4">
-              {unit.skills.map((skill, si) => {
-                const level = skills[skill.id] ?? 0;
-                const isOpen = unlocked(skill);
-                const offset = [0, 56, 84, 56, 0, -56, -84, -56][si % 8];
+            <ol className="mt-5 flex flex-col items-center gap-3">
+              {lessons.map((lesson, li) => {
+                const isOpen = unlocked(lesson);
+                const offset = [0, 52, 72, 52, 0, -52, -72, -52][li % 8];
                 return (
-                  <li key={skill.id} className="relative flex flex-col items-center" style={{ transform: `translateX(${offset}px)` }}>
-                    {current?.id === skill.id ? (
-                      <span className="pop mb-1 rounded-xl border border-line bg-surface px-3 py-1 text-xs font-bold text-accent shadow">
-                        Start
-                      </span>
+                  <li key={lesson.id} className="relative flex flex-col items-center" style={{ transform: `translateX(${offset}px)` }}>
+                    {current?.id === lesson.id ? (
+                      <span className="pop mb-1 rounded-xl border border-line bg-surface px-3 py-1 text-xs font-bold text-accent shadow">Start</span>
                     ) : null}
-                    <SkillNode
-                      skill={skill}
-                      level={level}
-                      locked={!isOpen}
-                      color={color}
-                      onClick={() => setOpen(open === skill.id ? null : skill.id)}
-                    />
-                    {open === skill.id ? (
-                      <SkillCard skill={skill} level={level} locked={!isOpen} color={color} onStart={() => onStart({ kind: "lesson", skill })} />
+                    <LessonNode lesson={lesson} crowns={count(lesson)} locked={!isOpen} color={color} onClick={() => setOpen(open === lesson.id ? null : lesson.id)} />
+                    <span className={`mt-1 text-xs font-semibold ${isOpen ? "text-fg" : "text-muted"}`}>{lesson.title}</span>
+                    {open === lesson.id ? (
+                      <LessonCard lesson={lesson} crowns={count(lesson)} locked={!isOpen} color={color} onStart={() => onStart({ kind: "lesson", index: lesson.index })} />
                     ) : null}
                   </li>
                 );
               })}
               <li className="flex flex-col items-center">
                 <span
-                  className={`grid size-16 place-items-center rounded-2xl border-4 ${allDone ? "text-ink" : "border-line bg-surface text-muted"}`}
+                  className={`grid size-14 place-items-center rounded-2xl border-4 ${allDone ? "text-ink" : "border-line bg-surface text-muted"}`}
                   style={allDone ? { background: color, borderColor: color } : undefined}
                   aria-label={allDone ? "Unit complete" : "Unit checkpoint"}
                 >
-                  <Trophy className="size-7" aria-hidden="true" />
+                  <Trophy className="size-6" aria-hidden="true" />
                 </span>
               </li>
             </ol>
           </section>
         );
       })}
+
+      <section className="card mt-8 rounded-3xl border border-dashed border-line p-5 text-center">
+        <Sparkles className="mx-auto size-6 text-accent" aria-hidden="true" />
+        <p className="mt-2 font-display text-lg font-bold">More units on the way</p>
+        <p className="mt-1 text-sm text-muted">{COMING.join(" · ")}</p>
+        <p className="mt-2 text-xs text-muted">Meanwhile, Play has hundreds of Cloze sentences to sharpen your verbs.</p>
+      </section>
     </div>
   );
 }
 
-function SkillNode({ skill, level, locked, color, onClick }: { skill: Skill; level: number; locked: boolean; color: string; onClick: () => void }) {
-  const r = 38;
+function LessonNode({ lesson, crowns, locked, color, onClick }: { lesson: FlatLesson; crowns: number; locked: boolean; color: string; onClick: () => void }) {
+  const r = 34;
   const c = 2 * Math.PI * r;
   return (
-    <button type="button" onClick={onClick} className="tap relative grid size-[84px] place-items-center" aria-label={`${skill.title}, level ${level} of ${LEVELS_PER_SKILL}${locked ? ", locked" : ""}`}>
-      <svg viewBox="0 0 84 84" className="absolute inset-0 -rotate-90" aria-hidden="true">
-        <circle cx="42" cy="42" r={r} fill="none" strokeWidth="5" className="stroke-line" />
-        <circle cx="42" cy="42" r={r} fill="none" strokeWidth="5" stroke={color} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - level / LEVELS_PER_SKILL)} />
+    <button
+      type="button"
+      onClick={onClick}
+      className="tap relative grid size-[76px] place-items-center"
+      aria-label={`${lesson.title}${locked ? ", locked" : crowns ? `, done ${crowns} of ${CROWNS}` : ""}`}
+    >
+      <svg viewBox="0 0 76 76" className="absolute inset-0 -rotate-90" aria-hidden="true">
+        <circle cx="38" cy="38" r={r} fill="none" strokeWidth="5" className="stroke-line" />
+        <circle cx="38" cy="38" r={r} fill="none" strokeWidth="5" stroke={color} strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - Math.min(crowns, CROWNS) / CROWNS)} />
       </svg>
       <span
-        className={`grid size-[64px] place-items-center rounded-full border-b-4 ${locked ? "border-line bg-line/60 text-muted" : "text-ink"}`}
+        className={`grid size-[58px] place-items-center rounded-full border-b-4 ${locked ? "border-line bg-line/60 text-muted" : "text-ink"}`}
         style={locked ? undefined : { background: color, borderColor: "rgb(0 0 0 / 0.25)" }}
       >
-        {locked ? <Lock className="size-6" aria-hidden="true" /> : level >= LEVELS_PER_SKILL ? <Crown className="size-7" aria-hidden="true" /> : <Star className="size-7 fill-current" aria-hidden="true" />}
+        {locked ? <Lock className="size-6" aria-hidden="true" /> : crowns >= CROWNS ? <Crown className="size-7" aria-hidden="true" /> : crowns > 0 ? <Check className="size-7" strokeWidth={3} aria-hidden="true" /> : <Star className="size-7 fill-current" aria-hidden="true" />}
       </span>
-      {level > 0 ? (
-        <span className="absolute -right-1 bottom-1 grid size-6 place-items-center rounded-full border-2 border-bg bg-fg text-[11px] font-bold text-bg">{level}</span>
-      ) : null}
     </button>
   );
 }
 
-function SkillCard({ skill, level, locked, color, onStart }: { skill: Skill; level: number; locked: boolean; color: string; onStart: () => void }) {
-  const done = level >= LEVELS_PER_SKILL;
+function LessonCard({ lesson, crowns, locked, color, onStart }: { lesson: FlatLesson; crowns: number; locked: boolean; color: string; onStart: () => void }) {
   return (
     <div className="rise z-10 mt-2 w-64 rounded-2xl border p-4 text-center text-ink shadow-xl" style={{ background: color, borderColor: color }}>
-      <p className="text-[11px] font-bold tracking-widest uppercase opacity-80">{pack().tenseTitle(skill.tense)}</p>
-      <p className="mt-0.5 font-display text-lg leading-tight font-bold" lang={pack().code}>
-        {skill.verbs.join(", ")}
+      <p className="font-display text-lg leading-tight font-bold">{lesson.title}</p>
+      <p className="mt-1 text-sm opacity-90" lang={pack().code}>
+        {lesson.phrases
+          .slice(0, 4)
+          .map((p) => p.t)
+          .join(" · ")}
+        {lesson.phrases.length > 4 ? " …" : ""}
       </p>
-      <p className="mt-1 text-xs opacity-80">{locked ? "Finish the skill before this one to unlock it." : done ? "Complete — practise any time." : `Level ${level + 1} of ${LEVELS_PER_SKILL}`}</p>
-      <button
-        type="button"
-        disabled={locked}
-        onClick={onStart}
-        className="tap mt-3 min-h-11 w-full rounded-xl bg-ink/85 font-bold text-white disabled:opacity-50"
-      >
-        {locked ? "Locked" : done ? "Practise" : level === 0 ? "Start" : "Continue"}
+      <p className="mt-1 text-xs opacity-80">
+        {locked ? "Finish the lesson before this one to unlock it." : crowns > 0 ? "Done — practise to earn another crown." : `${lesson.phrases.length} new words and phrases`}
+      </p>
+      <button type="button" disabled={locked} onClick={onStart} className="tap mt-3 min-h-11 w-full rounded-xl bg-ink/85 font-bold text-white disabled:opacity-50">
+        {locked ? "Locked" : crowns > 0 ? "Practise" : "Start"}
       </button>
     </div>
   );
@@ -168,43 +177,43 @@ function SkillCard({ skill, level, locked, color, onStart }: { skill: Skill; lev
 
 // ---------------- session runner ----------------
 
-type Outcome = { ok: boolean; solution: string; detail?: string };
+type Outcome = { ok: boolean; solution: string; meaning?: string };
 
 function Runner({ session, onExit }: { session: Session; onExit: () => void }) {
   const complete = usePlay((s) => s.completeSkillLesson);
   const passTestOut = usePlay((s) => s.passTestOut);
   const markSeen = usePlay((s) => s.markSeen);
-  const level = usePlay((s) => (session.kind === "lesson" ? s.skills[session.skill.id] ?? 0 : 0));
+  const crowns = usePlay((s) => (session.kind === "lesson" ? s.skills[lessonsInOrder()[session.index].id] ?? 0 : 0));
   const voice = hasVoice();
   const initial = useMemo(
-    () => (session.kind === "lesson" ? makeLesson(session.skill, Math.min(level, LEVELS_PER_SKILL - 1), voice) : makeTestOut(session.unitIndex, voice)),
+    () => (session.kind === "lesson" ? makeLesson(session.index, crowns > 0, voice) : makeTestOut(session.unitIndex, voice)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
+  const graded = initial.filter((e) => !isTeaching(e)).length;
   const [queue, setQueue] = useState<Exercise[]>(initial);
   const [index, setIndex] = useState(0);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
-  const [firstTry, setFirstTry] = useState({ right: 0, total: initial.length });
+  const [right, setRight] = useState(0);
   const missed = useRef(new Set<Exercise>());
   // Test-out: three hearts on screen. Three right in a row quietly earns a
-  // spare, which isn't shown — the display never goes above three.
+  // spare, which is never shown.
   const [lives, setLives] = useState(3);
-  const [streak, setStreak] = useState(0);
   const [wrongs, setWrongs] = useState(0);
+  const [streak, setStreak] = useState(0);
   const bonusGiven = useRef(false);
   const [finished, setFinished] = useState<null | { xp: number; passed: boolean }>(null);
   const isTest = session.kind === "test";
   const exercise = queue[index];
-  // Hearts on screen drop with every mistake; the hidden spare only shows as
-  // "still going on the last heart".
+  // Hearts drop with every mistake; the hidden spare only shows as "still going on the last heart".
   const shown = lives <= 0 ? 0 : Math.max(1, Math.min(3 - wrongs, lives));
 
   function onAnswer(o: Outcome) {
     setOutcome(o);
     buzz(o.ok ? 12 : [30, 60, 30]);
-    if (exercise.kind === "cloze" || exercise.kind === "build" || exercise.kind === "listen") markSeen(wordsIn(sentence(exercise.item, answerOf(exercise.item))));
+    if ("p" in exercise) markSeen(wordsIn(exercise.p.t));
     if (o.ok) {
-      if (!missed.current.has(exercise)) setFirstTry((f) => ({ ...f, right: f.right + 1 }));
+      if (!missed.current.has(exercise)) setRight((r) => r + 1);
       if (isTest) {
         const s = streak + 1;
         setStreak(s);
@@ -220,7 +229,7 @@ function Runner({ session, onExit }: { session: Session; onExit: () => void }) {
         setWrongs((w) => w + 1);
         setLives((l) => l - 1);
       } else {
-        // Lessons: bring the exercise back at the end.
+        // Lessons: bring it back at the end.
         setQueue((q) => [...q, exercise]);
       }
     }
@@ -234,11 +243,13 @@ function Runner({ session, onExit }: { session: Session; onExit: () => void }) {
     }
     if (index + 1 >= queue.length) {
       if (session.kind === "lesson") {
-        const xp = complete(session.skill.id, firstTry.right / Math.max(1, firstTry.total));
+        const xp = complete(lessonsInOrder()[session.index].id, right / Math.max(1, graded));
         setFinished({ xp, passed: true });
       } else {
-        const units = curriculum().slice(0, session.unitIndex + 1);
-        passTestOut(units[units.length - 1].id, units.flatMap((u) => u.skills.map((s) => s.id)));
+        const ids = lessonsInOrder()
+          .filter((l) => l.unitIndex <= session.unitIndex)
+          .map((l) => l.id);
+        passTestOut(pack().course[session.unitIndex].id, ids);
         setFinished({ xp: 30, passed: true });
       }
       return;
@@ -246,10 +257,10 @@ function Runner({ session, onExit }: { session: Session; onExit: () => void }) {
     setIndex(index + 1);
   }
 
-  if (finished) return <Finish passed={finished.passed} xp={finished.xp} test={isTest} accuracy={firstTry.right / Math.max(1, firstTry.total)} onDone={onExit} onCloze={session.kind === "lesson" ? () => playCloze(session.skill) : undefined} />;
+  if (finished) return <Finish passed={finished.passed} xp={finished.xp} test={isTest} accuracy={right / Math.max(1, graded)} onDone={onExit} />;
 
   return (
-    <div className="rise pb-40">
+    <div className="rise pb-44">
       <div className="flex items-center gap-3">
         <button type="button" onClick={onExit} className="tap grid size-9 place-items-center rounded-full text-muted hover:text-fg" aria-label="Leave">
           <X className="size-5" aria-hidden="true" />
@@ -265,8 +276,14 @@ function Runner({ session, onExit }: { session: Session; onExit: () => void }) {
           </span>
         ) : null}
       </div>
-      <div className="mt-5" key={index}>
-        <ExerciseView exercise={exercise} locked={outcome !== null} onAnswer={onAnswer} />
+      <div className="mt-6" key={index}>
+        {exercise.kind === "tip" ? (
+          <TipCard ex={exercise} onNext={next} />
+        ) : exercise.kind === "intro" ? (
+          <IntroCard p={exercise.p} onNext={next} />
+        ) : (
+          <ExerciseView exercise={exercise} locked={outcome !== null} onAnswer={onAnswer} />
+        )}
       </div>
       {outcome ? (
         <div className={`fixed inset-x-0 bottom-0 z-40 border-t px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] ${outcome.ok ? "border-good/40 bg-[#123222]" : "border-bad/40 bg-[#3a1717]"}`}>
@@ -275,17 +292,13 @@ function Runner({ session, onExit }: { session: Session; onExit: () => void }) {
               {outcome.ok ? <Check className="size-6" strokeWidth={3} aria-hidden="true" /> : <X className="size-6" strokeWidth={3} aria-hidden="true" />}
               {outcome.ok ? ["Great!", "Nice!", "Correct!", "Spot on!"][index % 4] : "Correct answer:"}
             </p>
-            {!outcome.ok || outcome.detail ? (
-              <p className="mt-1 text-[15px] text-fg" lang={pack().code}>
-                {outcome.ok ? outcome.detail : outcome.solution}
+            {!outcome.ok ? (
+              <p className="mt-1 text-[17px] font-semibold text-fg" lang={pack().code}>
+                {outcome.solution}
               </p>
             ) : null}
-            <button
-              type="button"
-              autoFocus
-              onClick={next}
-              className={`tap mt-3 min-h-13 w-full rounded-2xl font-bold text-ink ${outcome.ok ? "bg-good" : "bg-bad"}`}
-            >
+            {outcome.meaning ? <p className="mt-0.5 text-sm text-muted">{outcome.meaning}</p> : null}
+            <button type="button" autoFocus onClick={next} className={`tap mt-3 min-h-13 w-full rounded-2xl font-bold text-ink ${outcome.ok ? "bg-good" : "bg-bad"}`}>
               Continue
             </button>
           </div>
@@ -295,35 +308,13 @@ function Runner({ session, onExit }: { session: Session; onExit: () => void }) {
   );
 }
 
-/** Jump into the Cloze game on a sentence from this skill's verbs. */
-function playCloze(skill: Skill) {
-  const items = pack().items.filter((it) => it.tense === skill.tense && skill.verbs.includes(it.verb));
-  if (items.length) usePlay.getState().draw(items[Math.floor(Math.random() * items.length)].id);
-}
-
-function Finish({
-  passed,
-  xp,
-  test,
-  accuracy,
-  onDone,
-  onCloze,
-}: {
-  passed: boolean;
-  xp: number;
-  test: boolean;
-  accuracy: number;
-  onDone: () => void;
-  onCloze?: () => void;
-}) {
+function Finish({ passed, xp, test, accuracy, onDone }: { passed: boolean; xp: number; test: boolean; accuracy: number; onDone: () => void }) {
   return (
     <div className="rise card mt-6 rounded-3xl border border-line p-6 text-center">
       <div className="mx-auto grid size-20 place-items-center rounded-full bg-accent/15 text-accent">
         {passed ? <Trophy className="size-10" aria-hidden="true" /> : <Heart className="size-10" aria-hidden="true" />}
       </div>
-      <h1 className="mt-4 font-display text-3xl font-bold">
-        {passed ? (test ? "You tested out!" : "Lesson complete!") : "Out of hearts"}
-      </h1>
+      <h1 className="mt-4 font-display text-3xl font-bold">{passed ? (test ? "You tested out!" : "Lesson complete!") : "Out of hearts"}</h1>
       <p className="mt-2 text-sm text-muted">
         {passed
           ? test
@@ -335,11 +326,79 @@ function Finish({
       <button type="button" onClick={onDone} className="tap mt-6 min-h-13 w-full rounded-2xl bg-accent font-bold text-ink">
         Continue
       </button>
-      {onCloze ? (
-        <button type="button" onClick={onCloze} className="tap mt-2 min-h-12 w-full rounded-2xl border-2 border-line font-semibold text-fg hover:border-accent">
-          Play these verbs in Cloze
-        </button>
+    </div>
+  );
+}
+
+// ---------------- teaching cards ----------------
+
+function BottomButton({ label, disabled = false, onClick }: { label: string; disabled?: boolean; onClick: () => void }) {
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/95 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
+      <button type="button" disabled={disabled} onClick={onClick} className="tap mx-auto block min-h-13 w-full max-w-xl rounded-2xl bg-accent font-bold text-ink disabled:opacity-40">
+        {label}
+      </button>
+    </div>
+  );
+}
+
+function TipCard({ ex, onNext }: { ex: Extract<Exercise, { kind: "tip" }>; onNext: () => void }) {
+  return (
+    <div className="card rounded-3xl border border-line p-6">
+      <div className="flex items-center gap-2 text-accent">
+        <Lightbulb className="size-5" aria-hidden="true" />
+        <p className="text-xs font-bold tracking-widest uppercase">Tip · {ex.title}</p>
+      </div>
+      <p className="mt-3 text-lg leading-relaxed">{ex.text}</p>
+      <BottomButton label="Got it" onClick={onNext} />
+    </div>
+  );
+}
+
+function SpeakButtons({ text, size = "md" }: { text: string; size?: "md" | "lg" }) {
+  if (!hasVoice()) return null;
+  const big = size === "lg";
+  return (
+    <div className="flex gap-2">
+      <button type="button" onClick={() => say(text)} className={`tap grid place-items-center rounded-2xl bg-accent text-ink ${big ? "size-20" : "size-11"}`} aria-label="Listen">
+        <Volume2 className={big ? "size-9" : "size-5"} aria-hidden="true" />
+      </button>
+      <button type="button" onClick={() => say(text, true)} className={`tap grid place-items-center rounded-2xl border-2 border-line bg-surface ${big ? "size-20" : "size-11"}`} aria-label="Listen slowly">
+        <Turtle className={big ? "size-8" : "size-5"} aria-hidden="true" />
+      </button>
+    </div>
+  );
+}
+
+function IntroCard({ p, onNext }: { p: Phrase; onNext: () => void }) {
+  useEffect(() => {
+    if (hasVoice()) say(p.t);
+  }, [p.t]);
+  const many = p.t.trim().includes(" ");
+  return (
+    <div className="card rounded-3xl border border-line p-6 text-center">
+      <p className="text-xs font-bold tracking-widest text-accent uppercase">{many ? "New phrase" : "New word"}</p>
+      {p.pic ? (
+        <div className="mt-3 text-6xl" aria-hidden="true">
+          {p.pic}
+        </div>
       ) : null}
+      <p className="mt-3 font-display text-4xl leading-tight font-bold" lang={pack().code}>
+        {p.t}
+      </p>
+      <PronLine text={p.t} className="mt-2 flex flex-col items-center" />
+      <p className="mt-3 text-xl">{p.en}</p>
+      {p.lit ? (
+        <p className="mx-auto mt-3 w-fit rounded-xl bg-accent/10 px-3 py-1.5 text-sm">
+          <span className="text-muted">Word for word: </span>
+          <span className="font-semibold">{p.lit}</span>
+        </p>
+      ) : null}
+      {p.note ? <p className="mt-3 text-sm text-muted">{p.note}</p> : null}
+      <div className="mt-5 flex justify-center">
+        <SpeakButtons text={p.t} />
+      </div>
+      <BottomButton label="Continue" onClick={onNext} />
     </div>
   );
 }
@@ -348,235 +407,162 @@ function Finish({
 
 function ExerciseView({ exercise, locked, onAnswer }: { exercise: Exercise; locked: boolean; onAnswer: (o: Outcome) => void }) {
   switch (exercise.kind) {
-    case "cloze":
-      return <Cloze ex={exercise} locked={locked} onAnswer={onAnswer} />;
-    case "conjugate":
-      return (
-        <Choice
-          title="Pick the right form"
-          prompt={
-            <div className="flex flex-wrap gap-1.5">
-              <Chip tone="accent">{exercise.verb}</Chip>
-              <Chip>{pack().tenseTitle(exercise.tense)}</Chip>
-              <Chip>{pack().persons[exercise.person]}</Chip>
-            </div>
-          }
-          options={exercise.options}
-          answer={exercise.answer}
-          locked={locked}
-          onAnswer={onAnswer}
-          display
-        />
-      );
-    case "meaning":
-      return (
-        <Choice
-          title={exercise.reverse ? `Which ${pack().name} word means…` : "What does this mean?"}
-          prompt={
-            <div>
-              <p className="font-display text-3xl font-bold" lang={exercise.reverse ? "en" : pack().code}>
-                {exercise.reverse ? exercise.entry.en : exercise.entry.word}
-              </p>
-              {!exercise.reverse ? <PronLine text={exercise.entry.word} className="mt-1" /> : null}
-            </div>
-          }
-          options={exercise.options}
-          answer={exercise.reverse ? exercise.entry.word : exercise.entry.en}
-          locked={locked}
-          onAnswer={onAnswer}
-          display={exercise.reverse}
-        />
-      );
-    case "match":
-      return <Match ex={exercise} locked={locked} onAnswer={onAnswer} />;
-    case "build":
-      return <BuildEx ex={exercise} locked={locked} onAnswer={onAnswer} />;
+    case "pick-en":
+      return <PickEn ex={exercise} locked={locked} onAnswer={onAnswer} />;
+    case "pick-t":
+      return <PickT ex={exercise} locked={locked} onAnswer={onAnswer} />;
+    case "tiles-t":
+    case "tiles-en":
+      return <Tiles ex={exercise} locked={locked} onAnswer={onAnswer} />;
     case "listen":
       return <Listen ex={exercise} locked={locked} onAnswer={onAnswer} />;
+    case "match":
+      return <Match ex={exercise} locked={locked} onAnswer={onAnswer} />;
+    default:
+      return null;
   }
 }
 
-function Title({ children }: { children: string }) {
+function Title({ children }: { children: React.ReactNode }) {
   return <h2 className="font-display text-2xl font-bold">{children}</h2>;
 }
 
-function CheckButton({ disabled, onClick, hidden }: { disabled: boolean; onClick: () => void; hidden: boolean }) {
-  if (hidden) return null;
-  return (
-    <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-bg/95 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur">
-      <button type="button" disabled={disabled} onClick={onClick} className="tap mx-auto block min-h-13 w-full max-w-xl rounded-2xl bg-accent font-bold text-ink disabled:opacity-40">
-        Check
-      </button>
-    </div>
-  );
+function optionTone(locked: boolean, isAnswer: boolean, isPicked: boolean) {
+  if (locked) return isAnswer ? "border-good/60 bg-good/10" : isPicked ? "border-bad/60 bg-bad/10" : "border-line opacity-50";
+  return isPicked ? "border-accent bg-accent/12" : "border-line bg-surface hover:border-accent";
 }
 
-function Choice({
-  title,
-  prompt,
-  options,
-  answer,
-  locked,
-  onAnswer,
-  display = false,
-}: {
-  title: string;
-  prompt: React.ReactNode;
-  options: string[];
-  answer: string;
-  locked: boolean;
-  onAnswer: (o: Outcome) => void;
-  display?: boolean;
-}) {
+function PickEn({ ex, locked, onAnswer }: { ex: Extract<Exercise, { kind: "pick-en" }>; locked: boolean; onAnswer: (o: Outcome) => void }) {
   const [picked, setPicked] = useState<string | null>(null);
+  useEffect(() => {
+    if (hasVoice()) say(ex.p.t);
+  }, [ex.p.t]);
   return (
     <div>
-      <Title>{title}</Title>
-      <div className="mt-4">{prompt}</div>
-      <ul className="mt-5 grid gap-2">
-        {options.map((o, i) => {
-          const tone = locked
-            ? o === answer
-              ? "border-good/60 bg-good/10"
-              : o === picked
-                ? "border-bad/60 bg-bad/10"
-                : "border-line opacity-50"
-            : o === picked
-              ? "border-accent bg-accent/12"
-              : "border-line bg-surface hover:border-accent";
-          return (
-            <li key={o}>
-              <button
-                type="button"
-                disabled={locked}
-                onClick={() => setPicked(o)}
-                className={`tap flex min-h-13 w-full items-center gap-3 rounded-2xl border-2 px-4 text-left ${tone} ${display ? "font-display text-lg font-semibold" : "text-[15px]"}`}
-                lang={display ? pack().code : undefined}
-              >
-                <span className="grid size-6 shrink-0 place-items-center rounded-md border border-line text-[11px] text-muted">{i + 1}</span>
-                <span className="min-w-0 flex-1">{o}</span>
-              </button>
-            </li>
-          );
-        })}
+      <Title>What does this mean?</Title>
+      <div className="mt-5 flex items-center gap-3">
+        <SpeakButtons text={ex.p.t} />
+        <p className="font-display text-3xl leading-tight font-bold" lang={pack().code}>
+          {ex.p.t}
+        </p>
+      </div>
+      <PronLine text={ex.p.t} className="mt-2" />
+      <ul className="mt-6 grid gap-2">
+        {ex.options.map((o) => (
+          <li key={o}>
+            <button type="button" disabled={locked} onClick={() => setPicked(o)} className={`tap min-h-13 w-full rounded-2xl border-2 px-4 text-left text-[17px] ${optionTone(locked, o === ex.p.en, o === picked)}`}>
+              {o}
+            </button>
+          </li>
+        ))}
       </ul>
-      <CheckButton hidden={locked} disabled={!picked} onClick={() => onAnswer({ ok: picked === answer, solution: answer })} />
+      {!locked ? <BottomButton label="Check" disabled={!picked} onClick={() => onAnswer({ ok: picked === ex.p.en, solution: ex.p.en, meaning: picked === ex.p.en ? undefined : ex.p.t })} /> : null}
     </div>
   );
 }
 
-function Cloze({ ex, locked, onAnswer }: { ex: Extract<Exercise, { kind: "cloze" }>; locked: boolean; onAnswer: (o: Outcome) => void }) {
-  const { left, tail } = parts(ex.item);
-  const answer = answerOf(ex.item);
+function PickT({ ex, locked, onAnswer }: { ex: Extract<Exercise, { kind: "pick-t" }>; locked: boolean; onAnswer: (o: Outcome) => void }) {
   const [picked, setPicked] = useState<string | null>(null);
-  const [draft, setDraft] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const full = sentence(ex.item, answer);
-  const shown = atSentenceStart(ex.item) ? capitalize(answer) : answer;
-  const fit = (w: string | null) => (w && atSentenceStart(ex.item) ? capitalize(w) : w);
-  const check = () => {
-    if (ex.typed) {
-      const g = gradeTyped(draft, answer);
-      onAnswer({ ok: g.ok, solution: full, detail: g.ok && !g.accent ? `Watch the ${pack().markWord}: ${answer}` : undefined });
-    } else onAnswer({ ok: picked === answer, solution: full });
+  const choose = (q: Phrase) => {
+    setPicked(q.t);
+    if (hasVoice()) say(q.t);
   };
   return (
     <div>
-      <Title>{ex.typed ? "Type the missing verb" : "Fill the gap"}</Title>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        <Chip tone="accent">{ex.item.verb}</Chip>
-        <Chip>{pack().tenseTitle(ex.item.tense)}</Chip>
-      </div>
-      <p className="mt-4 font-display text-2xl leading-snug font-semibold" lang={pack().code}>
-        {left}
-        <span className={locked ? "rounded-lg bg-good/15 px-1 text-good" : "inline-block min-w-16 border-b-[3px] border-accent"}>
-          {locked ? shown : fit(picked) ?? " "}
-        </span>
-        {tail}
-      </p>
-      {locked ? <PronLine text={full} className="mt-2" /> : null}
-      <p className="mt-2 text-sm text-muted">{ex.item.en}</p>
-      {ex.typed ? (
-        <div className="mt-5">
-          <input
-            ref={inputRef}
-            value={draft}
-            readOnly={locked}
-            onChange={(e) => setDraft(e.target.value)}
-            autoComplete="off"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            lang={pack().code}
-            aria-label="Missing verb"
-            placeholder="Type the verb…"
-            className="w-full rounded-2xl border-2 border-line bg-surface px-4 py-3 font-display text-xl font-semibold focus:border-accent focus:outline-none"
-          />
-          {!locked ? <AccentKeys inputRef={inputRef} value={draft} onChange={setDraft} /> : null}
-        </div>
+      <Title>
+        Which one is “{ex.p.en}”?
+      </Title>
+      {ex.pics ? (
+        <ul className="mt-6 grid grid-cols-2 gap-3">
+          {ex.options.map((q) => (
+            <li key={q.t}>
+              <button type="button" disabled={locked} onClick={() => choose(q)} className={`tap flex w-full flex-col items-center gap-2 rounded-2xl border-2 px-2 pt-4 pb-3 ${optionTone(locked, q.t === ex.p.t, q.t === picked)}`}>
+                <span className="text-5xl" aria-hidden="true">
+                  {q.pic}
+                </span>
+                <span className="font-display text-lg font-semibold" lang={pack().code}>
+                  {q.t}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
       ) : (
-        <ul className="mt-5 grid grid-cols-2 gap-2">
-          {ex.options.map((o) => (
-            <li key={o}>
-              <button
-                type="button"
-                disabled={locked}
-                onClick={() => setPicked(o)}
-                className={`tap min-h-14 w-full rounded-2xl border-2 px-3 font-display text-lg font-semibold ${
-                  locked ? (o === answer ? "border-good/60 bg-good/10" : o === picked ? "border-bad/60 bg-bad/10" : "border-line opacity-50") : o === picked ? "border-accent bg-accent/12" : "border-line bg-surface"
-                }`}
-                lang={pack().code}
-              >
-                {o}
+        <ul className="mt-6 grid gap-2">
+          {ex.options.map((q) => (
+            <li key={q.t}>
+              <button type="button" disabled={locked} onClick={() => choose(q)} className={`tap min-h-13 w-full rounded-2xl border-2 px-4 text-left font-display text-lg font-semibold ${optionTone(locked, q.t === ex.p.t, q.t === picked)}`} lang={pack().code}>
+                {q.t}
               </button>
             </li>
           ))}
         </ul>
       )}
-      <CheckButton hidden={locked} disabled={ex.typed ? !draft.trim() : !picked} onClick={check} />
+      {locked ? <PronLine text={ex.p.t} className="mt-3" /> : null}
+      {!locked ? <BottomButton label="Check" disabled={!picked} onClick={() => onAnswer({ ok: picked === ex.p.t, solution: ex.p.t, meaning: ex.p.en })} /> : null}
     </div>
   );
 }
 
-function BuildEx({ ex, locked, onAnswer }: { ex: Extract<Exercise, { kind: "build" }>; locked: boolean; onAnswer: (o: Outcome) => void }) {
+function Tiles({ ex, locked, onAnswer }: { ex: Extract<Exercise, { kind: "tiles-t" | "tiles-en" }>; locked: boolean; onAnswer: (o: Outcome) => void }) {
   const [picked, setPicked] = useState<number[]>([]);
+  const toTarget = ex.kind === "tiles-t";
+  useEffect(() => {
+    if (!toTarget && hasVoice()) say(ex.p.t);
+  }, [ex.p.t, toTarget]);
+  const tap = (i: number) => {
+    setPicked((p) => [...p, i]);
+    if (toTarget && hasVoice() && pack().code !== "ga") say(ex.bank[i]);
+  };
   return (
     <div>
-      <Title>Build this sentence</Title>
-      <p className="mt-3 text-lg font-semibold">{ex.item.en}</p>
-      <div className="mt-4 flex min-h-14 flex-wrap content-start gap-2 border-b-2 border-line pb-3">
+      <Title>{toTarget ? `Write this in ${pack().name}` : "Write this in English"}</Title>
+      {toTarget ? (
+        <p className="mt-4 text-xl font-semibold">{ex.p.en}</p>
+      ) : (
+        <div className="mt-4 flex items-center gap-3">
+          <SpeakButtons text={ex.p.t} />
+          <p className="font-display text-2xl leading-tight font-bold" lang={pack().code}>
+            {ex.p.t}
+          </p>
+        </div>
+      )}
+      <div className="mt-5 flex min-h-16 flex-wrap content-start gap-2 border-b-2 border-line pb-3">
         {picked.map((i) => (
           <button
             key={i}
             type="button"
             disabled={locked}
             onClick={() => setPicked((p) => p.filter((x) => x !== i))}
-            className="tap pop rounded-xl border-2 border-accent/50 bg-accent/10 px-3 py-1.5 font-display text-lg font-semibold"
-            lang={pack().code}
+            className="tap pop rounded-xl border-2 border-accent/50 bg-accent/10 px-3 py-1.5 text-lg font-semibold"
+            lang={toTarget ? pack().code : "en"}
           >
             {ex.bank[i]}
           </button>
         ))}
       </div>
-      <div className="mt-4 flex flex-wrap justify-center gap-2">
+      <div className="mt-5 flex flex-wrap justify-center gap-2" data-bank>
         {ex.bank.map((w, i) => (
           <button
             key={i}
             type="button"
             disabled={locked || picked.includes(i)}
-            onClick={() => setPicked((p) => [...p, i])}
-            className={`tap rounded-xl border-2 px-3 py-1.5 font-display text-lg font-semibold ${picked.includes(i) ? "border-line/50 bg-line/30 text-transparent" : "border-line bg-surface"}`}
-            lang={pack().code}
+            onClick={() => tap(i)}
+            className={`tap rounded-xl border-2 px-3 py-1.5 text-lg font-semibold ${picked.includes(i) ? "border-line/50 bg-line/30 text-transparent" : "border-line bg-surface"}`}
+            lang={toTarget ? pack().code : "en"}
           >
             {w}
           </button>
         ))}
       </div>
-      <CheckButton
-        hidden={locked}
-        disabled={picked.length === 0}
-        onClick={() => onAnswer({ ok: gradeWords(picked.map((i) => ex.bank[i]), ex.target).ok, solution: ex.target.join(" ") })}
-      />
+      {locked && toTarget ? <PronLine text={ex.p.t} className="mt-4" /> : null}
+      {!locked ? (
+        <BottomButton
+          label="Check"
+          disabled={picked.length === 0}
+          onClick={() => onAnswer({ ok: gradeWords(picked.map((i) => ex.bank[i]), ex.target).ok, solution: toTarget ? ex.p.t : ex.p.en, meaning: toTarget ? ex.p.en : ex.p.t })}
+        />
+      ) : null}
     </div>
   );
 }
@@ -584,37 +570,24 @@ function BuildEx({ ex, locked, onAnswer }: { ex: Extract<Exercise, { kind: "buil
 function Listen({ ex, locked, onAnswer }: { ex: Extract<Exercise, { kind: "listen" }>; locked: boolean; onAnswer: (o: Outcome) => void }) {
   const [picked, setPicked] = useState<string | null>(null);
   useEffect(() => {
-    void speak(ex.text).catch(() => {});
-  }, [ex.text]);
+    say(ex.p.t);
+  }, [ex.p.t]);
   return (
     <div>
-      <Title>What did you hear?</Title>
-      <div className="mt-5 flex gap-3">
-        <button type="button" onClick={() => void speak(ex.text)} className="tap grid size-20 place-items-center rounded-2xl bg-accent text-ink" aria-label="Play again">
-          <Volume2 className="size-9" aria-hidden="true" />
-        </button>
-        <button type="button" onClick={() => void speak(ex.text, true)} className="tap grid size-20 place-items-center rounded-2xl border-2 border-line bg-surface text-sm font-bold" aria-label="Play slowly">
-          slow
-        </button>
+      <Title>What do you hear?</Title>
+      <div className="mt-5">
+        <SpeakButtons text={ex.p.t} size="lg" />
       </div>
       <ul className="mt-6 grid gap-2">
-        {ex.options.map((o) => (
-          <li key={o}>
-            <button
-              type="button"
-              disabled={locked}
-              onClick={() => setPicked(o)}
-              className={`tap min-h-13 w-full rounded-2xl border-2 px-4 py-2 text-left text-[15px] ${
-                locked ? (o === ex.text ? "border-good/60 bg-good/10" : o === picked ? "border-bad/60 bg-bad/10" : "border-line opacity-50") : o === picked ? "border-accent bg-accent/12" : "border-line bg-surface"
-              }`}
-              lang={pack().code}
-            >
-              {o}
+        {ex.options.map((q) => (
+          <li key={q.t}>
+            <button type="button" disabled={locked} onClick={() => setPicked(q.t)} className={`tap min-h-13 w-full rounded-2xl border-2 px-4 text-left font-display text-lg font-semibold ${optionTone(locked, q.t === ex.p.t, q.t === picked)}`} lang={pack().code}>
+              {q.t}
             </button>
           </li>
         ))}
       </ul>
-      <CheckButton hidden={locked} disabled={!picked} onClick={() => onAnswer({ ok: picked === ex.text, solution: ex.text, detail: ex.item.en })} />
+      {!locked ? <BottomButton label="Check" disabled={!picked} onClick={() => onAnswer({ ok: picked === ex.p.t, solution: ex.p.t, meaning: ex.p.en })} /> : null}
     </div>
   );
 }
@@ -626,14 +599,14 @@ function Match({ ex, locked, onAnswer }: { ex: Extract<Exercise, { kind: "match"
   const [done, setDone] = useState<string[]>([]);
   const [wrong, setWrong] = useState<string | null>(null);
   const mistakes = useRef(0);
-  function tryMatch(word: string, en: string) {
-    const ok = ex.pairs.some((p) => p.word === word && p.en === en);
+  function tryMatch(t: string, en: string) {
+    const ok = ex.pairs.some((p) => p.t === t && p.en === en);
     if (ok) {
-      const next = [...done, word];
+      const next = [...done, t];
       setDone(next);
       setSel(null);
       buzz(8);
-      if (next.length === ex.pairs.length) onAnswer({ ok: mistakes.current === 0, solution: ex.pairs.map((p) => `${p.word} = ${p.en}`).join(" · ") });
+      if (next.length === ex.pairs.length) onAnswer({ ok: mistakes.current === 0, solution: ex.pairs.map((p) => `${p.t} = ${p.en}`).join(" · ") });
     } else {
       mistakes.current += 1;
       setWrong(en);
@@ -647,16 +620,17 @@ function Match({ ex, locked, onAnswer }: { ex: Extract<Exercise, { kind: "match"
         <div className="space-y-2">
           {left.map((p) => (
             <button
-              key={p.word}
+              key={p.t}
               type="button"
-              disabled={locked || done.includes(p.word)}
-              onClick={() => setSel(p.word)}
-              className={`tap min-h-13 w-full rounded-2xl border-2 px-2 font-display font-semibold ${
-                done.includes(p.word) ? "border-line/40 text-muted/40" : sel === p.word ? "border-accent bg-accent/12" : "border-line bg-surface"
-              }`}
+              disabled={locked || done.includes(p.t)}
+              onClick={() => {
+                setSel(p.t);
+                if (hasVoice()) say(p.t);
+              }}
+              className={`tap min-h-13 w-full rounded-2xl border-2 px-2 font-display font-semibold ${done.includes(p.t) ? "border-line/40 text-muted/40" : sel === p.t ? "border-accent bg-accent/12" : "border-line bg-surface"}`}
               lang={pack().code}
             >
-              {p.word}
+              {p.t}
             </button>
           ))}
         </div>
@@ -665,11 +639,9 @@ function Match({ ex, locked, onAnswer }: { ex: Extract<Exercise, { kind: "match"
             <button
               key={p.en}
               type="button"
-              disabled={locked || done.includes(p.word) || !sel}
+              disabled={locked || done.includes(p.t) || !sel}
               onClick={() => sel && tryMatch(sel, p.en)}
-              className={`tap min-h-13 w-full rounded-2xl border-2 px-2 text-sm ${
-                done.includes(p.word) ? "border-line/40 text-muted/40" : wrong === p.en ? "border-bad bg-bad/10" : "border-line bg-surface"
-              }`}
+              className={`tap min-h-13 w-full rounded-2xl border-2 px-2 text-sm ${done.includes(p.t) ? "border-line/40 text-muted/40" : wrong === p.en ? "border-bad bg-bad/10" : "border-line bg-surface"}`}
             >
               {p.en}
             </button>

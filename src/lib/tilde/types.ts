@@ -80,6 +80,23 @@ export type Story = {
   questions: StoryQuestion[];
 };
 
+/** One thing a lesson teaches: a word or short phrase. */
+export type Phrase = {
+  /** The phrase in the language being learned. */
+  t: string;
+  /** Plain English meaning (used for tiles, so keep it to simple words). */
+  en: string;
+  /** A picture (emoji) for picture questions. */
+  pic?: string;
+  /** Word-for-word English, when the language builds it differently. */
+  lit?: string;
+  /** A short extra note shown when the phrase is introduced. */
+  note?: string;
+};
+
+export type CourseLesson = { id: string; title: string; tip?: string; phrases: Phrase[] };
+export type CourseUnit = { id: string; title: string; about: string; lessons: CourseLesson[] };
+
 export type Pack = {
   code: "es" | "de" | "ga";
   /** English name of the language. */
@@ -97,6 +114,8 @@ export type Pack = {
   stories: Story[];
   vocab: VocabEntry[];
   guides: Record<Tense, Guide>;
+  /** The beginner lesson course (Lessons tab). */
+  course: CourseUnit[];
   accentKeys: readonly string[];
   /** What a missing diacritic is called: accent, umlaut, fada. */
   markWord: string;

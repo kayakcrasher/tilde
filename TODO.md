@@ -37,4 +37,4 @@ Tick them off as they're done.
 - [ ] Code-split the web bundle (it's over 500 kB because every language loads
       at once).
 - [ ] Update the older browser tests (`e2e`, `mode`, …): written before multiple choice was the default and before the app opened on Lessons
-- [ ] Add the lesson-tree browser test to the repo (it reads answers through a test-only hook enabled by `VITE_TEST_HOOKS=1`)
+- [ ] Add the lessons browser test to the repo (plays a full lesson, a practice round and both test-out cases in all three languages)
